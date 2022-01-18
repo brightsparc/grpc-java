@@ -1,0 +1,87 @@
+// Copyright 2015 The gRPC Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.predibase.api.pql";
+option java_outer_classname = "PqlProto";
+option objc_class_prefix = "PQL";
+
+package pql;
+
+// The greeting service definition.
+service Parser {
+  // Sends a greeting
+  rpc Parse (ParseRequest) returns (ParseResponse) {}
+}
+
+// The request message containing the statement and target sql dialect
+message ParseRequest {
+  string statement = 1;
+  enum SqlDialect {
+    UNDEFINED = 0;
+    MYSQL = 1;
+    POSTGRESQL = 2;
+    SNOWFLAKE = 3;
+  }
+  SqlDialect targetDialect = 2;
+}
+
+// The response message containing the clause type and properties and target sql
+message ParseResponse {
+  enum ClauseType {
+    UNDEFINED = 0;
+    // ddl commands
+    CREATE_CONNECTION = 1;
+    DROP_CONNECTION = 2;
+    CREATE_DATASET = 3;
+    DROP_DATASET = 4;
+    CREATE_MODEL = 5;
+    DROP_MODEL = 6;
+    // predict commands
+    PREDICT = 10;
+    VISUALIZE = 11;
+    // show commands
+    SHOW_MODELS = 21;
+    SHOW_METRICS = 22;
+    PLOT_METRICS = 23;
+  }
+  ClauseType clauseType = 1;
+  Clause clauseProps = 2;
+  string targetSql = 3;
+}
+
+// Clause is one of the following
+message Clause {
+  optional CreateConnectionClause createConnection = 1;
+  optional PredictClause predictClause = 2; // TODO: Can we map this to the enum types?
+}
+
+message CreateConnectionClause {
+  string connectionType = 1;
+  string connectionUri = 2;
+}
+
+message PredictClause {
+  enum PredictType {
+    UNDEFINED = 0;
+    PREDICT = 1;
+    EVALUATE = 2;
+  }
+  PredictType predictType = 1;
+  repeated string targetList = 2;
+  optional string withQualifier = 3;
+  string table = 4;
+  string model = 5;
+}
