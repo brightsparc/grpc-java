@@ -16,16 +16,19 @@
 
 package com.predibase.pql.api;
 
-import static org.junit.Assert.assertEquals;
-
-import com.predibase.pql.api.PqlServer.ParserImpl;
+import io.grpc.*;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.testing.GrpcCleanupRule;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.*;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+
+import java.io.*;
+
+import static org.junit.Assert.*;
 
 /**
  * Unit tests for {@link PqlServer}.
@@ -49,30 +52,140 @@ public class PqlServerTest {
   public final GrpcCleanupRule grpcCleanup = new GrpcCleanupRule();
 
   /**
-   * To test the server, make calls with a real stub using the in-process channel, and verify
-   * behaviors or state changes from the client side.
+   * This rule allows specifying expected exceptions.
+   */
+  @Rule
+  public ExpectedException exceptionRule = ExpectedException.none();
+
+  final String sqlStatement = "SELECT * FROM s1";
+
+  /**
+   * Verify native sql for target dialect
    */
   @Test
-  public void parserImpl_responsePredict() throws Exception {
+  public void testNativeMySql() throws IOException {
+    ParseResponse response = getStub().parse(ParseRequest.newBuilder().setStatement(sqlStatement)
+            .setTargetDialect(ParseRequest.TargetDialect.MYSQL).build());
+
+    // Validate predict clause using target dialect
+    assertEquals(ParseError.getDefaultInstance(), response.getParseError());
+    assertEquals(ParseResponse.ClauseType.NATIVE_SQL, response.getClauseType());
+    assertEquals("SELECT *\nFROM \"S1\"", response.getParsedSql());
+    assertEquals(1, response.getTargetSqlCount());
+    assertEquals("SELECT *\nFROM `S1`", response.getTargetSql(0));
+  }
+
+  final String predictStmt = "PREDICT t1, t2 INTO d USING m GIVEN " + sqlStatement;
+
+  /**
+   * Verify predict returns expected values for snowflake dialect.
+   */
+  @Test
+  public void testPredictSnowflake() throws IOException {
+    ParseResponse response = getStub().parse(ParseRequest.newBuilder().setStatement(predictStmt)
+            .setTargetDialect(ParseRequest.TargetDialect.SNOWFLAKE).build());
+
+    // Validate predict clause using target dialect
+    assertEquals(ParseError.getDefaultInstance(), response.getParseError());
+    assertEquals(ParseResponse.ClauseType.PREDICT, response.getClauseType());
+    assertEquals("PREDICT (\"T1\", \"T2\") INTO \"D\"\n" +
+            "USING \"M\"\n" +
+            "GIVEN (SELECT *\n" +
+            "FROM \"S1\")", response.getParsedSql());
+    PredictClause predict = response.getClause().getPredictClause();
+    assertEquals("D", predict.getTable());
+    assertEquals("M", predict.getModel());
+    assertEquals(1, response.getTargetSqlCount());
+    assertEquals("SELECT *\nFROM \"S1\"", response.getTargetSql(0));
+  }
+
+  /**
+   * Verify predict returns expected values for mysql dialect.
+   */
+  @Test
+  public void testPredictMySql() throws IOException {
+    ParseResponse response = getStub().parse(ParseRequest.newBuilder().setStatement(predictStmt)
+            .setTargetDialect(ParseRequest.TargetDialect.MYSQL).build());
+
+    // Validate predict clause using target dialect
+    assertEquals(ParseError.getDefaultInstance(), response.getParseError());
+    assertEquals(ParseResponse.ClauseType.PREDICT, response.getClauseType());
+    // Verify the parsed sql is still the same ANSI sql format
+    assertEquals("PREDICT (\"T1\", \"T2\") INTO \"D\"\n" +
+            "USING \"M\"\n" +
+            "GIVEN (SELECT *\n" +
+            "FROM \"S1\")", response.getParsedSql());
+    assertEquals(1, response.getTargetSqlCount());
+    assertEquals("SELECT *\nFROM `S1`", response.getTargetSql(0));
+  }
+
+  /**
+   * Verify predict returns correct parse message and properties
+   */
+  @Test
+  public void testPredictParseError() throws IOException {
+    // Define malformed predict query that is missing USING statement
+    String statement = "PREDICT x GIVEN y";
+    ParseResponse response = getStub().parse(ParseRequest.newBuilder()
+            .setStatement(statement).setTargetDialect(ParseRequest.TargetDialect.SNOWFLAKE).build());
+
+    // Validate predict clause using target dialect
+    ParseError err = response.getParseError();
+    assertNotEquals(ParseError.getDefaultInstance(), err);
+    // Verify error message
+    assertEquals("Encountered \"GIVEN\" at line 1, column 11.\n" +
+            "Was expecting one of:\n" +
+            "    \"INTO\" ...\n" +
+            "    \"USING\" ...\n" +
+            "    \"WITH\" ...\n" +
+            "    \")\" ...\n" +
+            "    \",\" ...\n" +
+            "    \".\" ...\n" +
+            "    ", err.getMessage());
+    // Verify tokens
+    assertEquals(6, err.getExpectedTokensCount());
+    assertEquals("\")\"", err.getExpectedTokens(0));
+    assertEquals("\",\"", err.getExpectedTokens(1));
+    assertEquals("\".\"", err.getExpectedTokens(2));
+    assertEquals("\"INTO\"", err.getExpectedTokens(3));
+    assertEquals("\"USING\"", err.getExpectedTokens(4));
+    assertEquals("\"WITH\"", err.getExpectedTokens(5));
+    // Verify position
+    assertEquals(1, err.getPosition().getLineNumber());
+    assertEquals(1, err.getPosition().getEndLineNumber());
+    assertEquals(11, err.getPosition().getColumnNumber());
+    assertEquals(11, err.getPosition().getEndColumnNumber());
+    assertEquals(ParseResponse.ClauseType.UNDEFINED, response.getClauseType());
+  }
+
+  /**
+   * Verify that we return an exception for unsupported dialect
+   */
+  @Test
+  public void testPredictUnsupportedDialect() throws IOException {
+    exceptionRule.expect(StatusRuntimeException.class);
+
+    // TODO: Validate the inner exception UnsupportedOperationException
+    getStub().parse(ParseRequest.newBuilder()
+            .setStatement(predictStmt)
+            .setTargetDialect(ParseRequest.TargetDialect.UNDEFINED).build());
+  }
+
+  /**
+   * To test the server, make calls with a real stub using the in-process channel.
+   * @return {@link ParserGrpc.ParserBlockingStub} for testing
+   * @throws IOException
+   */
+  private ParserGrpc.ParserBlockingStub getStub() throws IOException {
     // Generate a unique in-process server name.
     String serverName = InProcessServerBuilder.generateName();
 
     // Create a server, add service, start, and register for automatic graceful shutdown.
     grpcCleanup.register(InProcessServerBuilder
-        .forName(serverName).directExecutor().addService(new ParserImpl()).build().start());
+        .forName(serverName).directExecutor().addService(new PqlParser()).build().start());
 
-    ParserGrpc.ParserBlockingStub blockingStub = ParserGrpc.newBlockingStub(
-        // Create a client channel and register for automatic graceful shutdown.
+    // Create a client channel and register for automatic graceful shutdown.
+    return ParserGrpc.newBlockingStub(
         grpcCleanup.register(InProcessChannelBuilder.forName(serverName).directExecutor().build()));
-
-
-    String statement = "PREDICT Survived USING titanic_model GIVEN SELECT * FROM titanic";
-    ParseRequest.SqlDialect dialect =  ParseRequest.SqlDialect.valueOf("SNOWFLAKE");
-
-    ParseResponse response =
-        blockingStub.parse(ParseRequest.newBuilder().setStatement(statement).setTargetDialect(dialect).build());
-
-    // TODO: Validate all properties
-    assertEquals(ParseResponse.ClauseType.PREDICT, response.getClauseType());
   }
 }

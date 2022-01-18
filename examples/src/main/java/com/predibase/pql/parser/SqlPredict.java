@@ -21,6 +21,7 @@ import org.apache.calcite.sql.parser.*;
 import org.apache.calcite.util.*;
 
 import java.util.*;
+import java.util.stream.*;
 
 /**
  * A <code>SqlPredict</code> is a node of a parse tree which represents
@@ -92,7 +93,7 @@ public class SqlPredict extends SqlCall {
   public final WithQualifier withQualifier;
   public final SqlNode table;
   public final SqlModelRef model;
-  public final SqlNode given;
+  public final SqlNodeList given;
 
   //~ Constructors -----------------------------------------------------------
 
@@ -149,8 +150,29 @@ public class SqlPredict extends SqlCall {
     return model;
   }
 
-  public final SqlNode getGiven() {
+  public final SqlNodeList getGiven() {
+    // Returns the node list of all types fo given
     return given;
+  }
+
+  /**
+   * Return a list of given items
+   * @return List of {@link SqlGivenItem}
+   */
+  public final Stream<SqlGivenItem> getGivenItems() {
+    return given.stream()
+            .filter(g -> g instanceof SqlGivenItem)
+            .map(g -> (SqlGivenItem)g);
+  }
+
+  /**
+   * Return a list of given select clauses
+   * @return List of {@link SqlSelect}
+   */
+  public final Stream<SqlSelect> getGivenSelect() {
+    return given.stream()
+            .filter(g -> g instanceof  SqlSelect)
+            .map(g -> (SqlSelect)g);
   }
 
   @Override public List<SqlNode> getOperandList() {

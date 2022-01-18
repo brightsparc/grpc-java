@@ -29,37 +29,56 @@ service Parser {
 // The request message containing the statement and target sql dialect
 message ParseRequest {
   string statement = 1;
-  enum SqlDialect {
+  enum TargetDialect {
     UNDEFINED = 0;
     MYSQL = 1;
     POSTGRESQL = 2;
     SNOWFLAKE = 3;
+    REDSHIFT = 4;
+    BIGQUERY = 5;
   }
-  SqlDialect targetDialect = 2;
+  TargetDialect targetDialect = 2;
 }
 
 // The response message containing the clause type and properties and target sql
 message ParseResponse {
   enum ClauseType {
     UNDEFINED = 0;
+    NATIVE_SQL = 1;
     // ddl commands
-    CREATE_CONNECTION = 1;
-    DROP_CONNECTION = 2;
-    CREATE_DATASET = 3;
-    DROP_DATASET = 4;
-    CREATE_MODEL = 5;
-    DROP_MODEL = 6;
+    CREATE_CONNECTION = 10;
+    DROP_CONNECTION = 11;
+    CREATE_DATASET = 12;
+    DROP_DATASET = 13;
+    CREATE_MODEL = 14;
+    DROP_MODEL = 15;
     // predict commands
-    PREDICT = 10;
-    VISUALIZE = 11;
+    PREDICT = 100;
+    EVALUATE = 101;
+    VISUALIZE = 102;
     // show commands
-    SHOW_MODELS = 21;
-    SHOW_METRICS = 22;
-    PLOT_METRICS = 23;
+    SHOW_MODELS = 200;
+    SHOW_METRICS = 201;
+    PLOT_METRICS = 202;
   }
-  ClauseType clauseType = 1;
-  Clause clauseProps = 2;
-  string targetSql = 3;
+  optional ParseError parseError = 1;
+  ClauseType clauseType = 2;
+  Clause clause = 3;
+  string parsedSql = 4;
+  repeated string targetSql = 5;
+}
+
+message ParseError {
+  string message = 1;
+  ParserPos position = 2;
+  repeated string expectedTokens = 3;
+}
+
+message ParserPos {
+  int32 lineNumber = 1;
+  int32 columnNumber = 2;
+  int32 endLineNumber = 3;
+  int32 endColumnNumber = 4;
 }
 
 // Clause is one of the following

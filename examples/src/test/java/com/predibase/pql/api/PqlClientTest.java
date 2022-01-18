@@ -96,7 +96,7 @@ public class PqlClientTest {
     ArgumentCaptor<ParseRequest> requestCaptor = ArgumentCaptor.forClass(ParseRequest.class);
 
     String statement = "PREDICT Survived USING titanic_model GIVEN SELECT * FROM titanic";
-    ParseRequest.SqlDialect dialect =  ParseRequest.SqlDialect.valueOf("SNOWFLAKE");
+    ParseRequest.TargetDialect dialect =  ParseRequest.TargetDialect.valueOf("SNOWFLAKE");
 
     client.parse(statement, dialect);
 

@@ -42,7 +42,7 @@ public class PqlClient {
     }
 
     /** Say parse to server. */
-    public ParseResponse parse(String statement, ParseRequest.SqlDialect targetDialect) {
+    public ParseResponse parse(String statement, ParseRequest.TargetDialect targetDialect) {
         logger.info(String.format("Will try to parse %s for dialect %s ...",
                 statement, targetDialect));
         ParseRequest request = ParseRequest.newBuilder()
@@ -54,8 +54,8 @@ public class PqlClient {
             logger.log(Level.WARNING, "RPC failed: {0}", e.getStatus());
             return null;
         }
-        logger.info(String.format("Clause type %s, target sql: %s",
-                response.getClauseType(), response.getTargetSql()));
+        logger.info(String.format("Clause type %s, parsed sql: %s",
+                response.getClauseType(), response.getParsedSql()));
         return response;
     }
 
@@ -65,7 +65,7 @@ public class PqlClient {
      */
     public static void main(String[] args) throws Exception {
         String statement = "PREDICT Survived USING titanic_model GIVEN SELECT a, b FROM titanic";
-        ParseRequest.SqlDialect dialect =  ParseRequest.SqlDialect.valueOf("SNOWFLAKE");
+        ParseRequest.TargetDialect dialect =  ParseRequest.TargetDialect.valueOf("SNOWFLAKE");
         // Access a service running on the local machine on port 50051
         String target = "localhost:50051";
         // Allow passing in the user and target strings as command line arguments
@@ -78,7 +78,7 @@ public class PqlClient {
                 System.exit(1);
             }
             statement = args[0];
-            dialect = ParseRequest.SqlDialect.valueOf(args[1]);
+            dialect = ParseRequest.TargetDialect.valueOf(args[1]);
         }
 
         // Create a communication channel to the server, known as a Channel. Channels are thread-safe

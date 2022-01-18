@@ -16,19 +16,12 @@
 
 package com.predibase.pql.api;
 
-import com.predibase.pql.parser.*;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
-import io.grpc.stub.StreamObserver;
 import java.io.IOException;
-import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
-import java.util.stream.*;
 
-// TODO: Attempt to import .sql
-import org.apache.calcite.sql.*;
-import org.apache.calcite.sql.parser.*;
 
 /**
  * Server that manages startup/shutdown of a {@code Greeter} server.
@@ -42,7 +35,7 @@ public class PqlServer {
         /* The port on which the server should run */
         int port = 50051;
         server = ServerBuilder.forPort(port)
-                .addService(new ParserImpl())
+                .addService(new PqlParser())
                 .build()
                 .start();
         logger.info("Server started, listening on " + port);
@@ -85,100 +78,4 @@ public class PqlServer {
         server.blockUntilShutdown();
     }
 
-    static class ParserImpl extends ParserGrpc.ParserImplBase {
-
-        protected SqlDialect getDialect() {
-            // TODO: Get dialect from calcite
-            final SqlDialect.Context context = SqlDialect.EMPTY_CONTEXT
-                    .withDatabaseProduct(SqlDialect.DatabaseProduct.UNKNOWN)
-                    .withLiteralQuoteString("'")
-                    .withIdentifierQuoteString("\"");
-            return new SqlDialect(context);
-        }
-
-        protected SqlParser ansiSqlParser(String sql, SqlDialect dialect) {
-            // Create a new parser from sql string given a dialog and parser factory
-            final SqlParser.Config configBuilder =
-                    SqlParser.config().withParserFactory(ExtensionSqlParserImpl.FACTORY);
-            return SqlParser.create(sql, dialect.configureParser(configBuilder));
-        }
-
-        public ParserImpl() {
-        }
-
-        @Override
-        public void parse(ParseRequest request, StreamObserver<ParseResponse> responseObserver) {
-            // TODO: Should we through exception, or return error response in GRPC?
-            ParseResponse response;
-
-            logger.info(String.format("Got request %s", request.getStatement()));
-
-            try {
-                // TODO: Get Dialect from request
-                SqlDialect dialect = this.getDialect();
-                SqlNode node = this.ansiSqlParser(request.getStatement(), dialect).parseQuery();
-
-                // Default to null
-                ParseResponse.ClauseType clauseType = ParseResponse.ClauseType.UNDEFINED;
-                String targetSql = null;
-                Clause clause = null;
-
-                if (node.getKind() == SqlKind.OTHER) {
-
-                    if (node instanceof SqlCall) {
-                        // Get clause type from operator name
-                        String opName = ((SqlCall) node).getOperator().getName().replace(" ", "_");
-                        logger.info("Operator " + opName);
-                        clauseType = ParseResponse.ClauseType.valueOf(opName);
-                    }
-
-                    // TODO: Switch on the instance type here (operator name)
-                    if (node instanceof SqlPredict) {
-                        SqlPredict predict = (SqlPredict) node;
-
-                        List<String> targetList = predict.getTargetList().stream().map(t -> {
-                            SqlIdentifier target = (SqlIdentifier) t;
-                            return target.getSimple();
-                        }).collect(Collectors.toList());
-
-                        // Add required fields for predict
-                        PredictClause.Builder builder = PredictClause.newBuilder()
-                                .setPredictType(PredictClause.PredictType.valueOf(predict.getPredictType().toString()))
-                                .addAllTargetList(targetList)
-                                .setModel(predict.getModel().getName().getSimple())
-                                .setVersion(predict.getModel().getVersion()); // TODO: Default to 1
-
-                        // Add optional fields
-                        if (predict.getTable() != null) {
-                            builder.setTable(predict.getTable().toString());
-                        }
-                        if (predict.getWithQualifier() != null) {
-                            // TODO: Turn WithQualifier into enum
-                            //builder.setWithQualifier(predict.getWithQualifier())
-                        }
-
-                        // Turn the given section into SQL
-                        targetSql = predict.getGiven().toSqlString(dialect).toString();
-
-                        // Set the clause
-                        clause = Clause.newBuilder().setPredictClause(builder.build()).build();
-                    }
-                }
-
-                response = ParseResponse.newBuilder()
-                        .setClauseType(clauseType)
-                        .setClauseProps(clause)
-                        .setTargetSql(targetSql)
-                        .build();
-
-            } catch (SqlParseException e) {
-                e.printStackTrace();
-                // TODO: Set an error in the parse response
-                response = ParseResponse.getDefaultInstance();
-            }
-
-            responseObserver.onNext(response);
-            responseObserver.onCompleted();
-        }
-    }
 }
