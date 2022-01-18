@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.predibase.api.pql;
+package com.predibase.pql.api;
 
 import io.grpc.Channel;
 import io.grpc.ManagedChannel;
@@ -64,7 +64,7 @@ public class PqlClient {
      * greeting. The second argument is the target server.
      */
     public static void main(String[] args) throws Exception {
-        String statement = "PREDICT Survived USING titanic_model GIVEN SELECT * FROM titanic";
+        String statement = "PREDICT Survived USING titanic_model GIVEN SELECT a, b FROM titanic";
         ParseRequest.SqlDialect dialect =  ParseRequest.SqlDialect.valueOf("SNOWFLAKE");
         // Access a service running on the local machine on port 50051
         String target = "localhost:50051";

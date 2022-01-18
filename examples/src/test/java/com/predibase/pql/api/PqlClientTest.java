@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.predibase.api.pql;
+package com.predibase.pql.api;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.AdditionalAnswers.delegatesTo;

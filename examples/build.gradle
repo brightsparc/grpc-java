@@ -12,10 +12,6 @@ repositories {
         url "https://maven-central.storage-download.googleapis.com/maven2/" }
     mavenCentral()
     mavenLocal()
-    // Add local libs
-    flatDir {
-        dirs 'libs'
-    }
 }
 
 sourceCompatibility = 1.8
@@ -39,7 +35,9 @@ dependencies {
     implementation "com.google.protobuf:protobuf-java-util:${protobufVersion}"
 
     // Add local calcite implementation
-    implementation name: 'calcite-core-1.30.0-SNAPSHOT-sources'
+    implementation 'org.apache.calcite:calcite-core:1.29.0'
+    // This is is required for SqlLiteral (TODO: Remove this)
+    implementation 'org.apache.calcite.avatica:avatica-core:1.20.0'
 
     runtimeOnly "io.grpc:grpc-netty-shaded:${grpcVersion}"
 
@@ -99,14 +97,14 @@ task helloWorldClient(type: CreateStartScripts) {
 }
 
 task pqlServer(type: CreateStartScripts) {
-    mainClassName = 'com.predibase.api.pql.PqlServer'
+    mainClassName = 'com.predibase.pql.api.PqlServer'
     applicationName = 'pql-server'
     outputDir = new File(project.buildDir, 'tmp')
     classpath = startScripts.classpath
 }
 
 task pqlClient(type: CreateStartScripts) {
-    mainClassName = 'com.predibase.api.pql.PqlClient'
+    mainClassName = 'com.predibase.pql.api.PqlClient'
     applicationName = 'pql-client'
     outputDir = new File(project.buildDir, 'tmp')
     classpath = startScripts.classpath

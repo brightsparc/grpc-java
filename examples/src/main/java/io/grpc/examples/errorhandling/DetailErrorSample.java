@@ -145,7 +145,7 @@ public class DetailErrorSample {
         response,
         new FutureCallback<HelloReply>() {
           @Override
-          public void onSuccess(@Nullable HelloReply result) {
+          public void onSuccess(HelloReply result) {
             // Won't be called, since the server in this example always fails.
           }
 

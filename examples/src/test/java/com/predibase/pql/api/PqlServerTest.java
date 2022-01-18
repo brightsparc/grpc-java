@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-package com.predibase.api.pql;
+package com.predibase.pql.api;
 
 import static org.junit.Assert.assertEquals;
 
-import com.predibase.api.pql.PqlServer.ParserImpl;
+import com.predibase.pql.api.PqlServer.ParserImpl;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.testing.GrpcCleanupRule;

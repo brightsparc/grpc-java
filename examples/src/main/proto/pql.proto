@@ -14,7 +14,7 @@
 syntax = "proto3";
 
 option java_multiple_files = true;
-option java_package = "com.predibase.api.pql";
+option java_package = "com.predibase.pql.api";
 option java_outer_classname = "PqlProto";
 option objc_class_prefix = "PQL";
 
@@ -84,4 +84,5 @@ message PredictClause {
   optional string withQualifier = 3;
   string table = 4;
   string model = 5;
+  uint32 version = 6;
 }
