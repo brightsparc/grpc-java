@@ -17,6 +17,8 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
     static final Counter requests = Counter.build()
             .name("requests").help("Total requests.")
             .labelNames("operator").register();
+    static final Counter parseErrors = Counter.build()
+            .name("parse_errors").help("Total parse errors.").register();
     static final Summary receivedBytes = Summary.build()
             .name("requests_size_bytes").help("Request size in bytes.").register();
     static final Histogram requestLatency = Histogram.build()
@@ -73,11 +75,11 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
                             .setColumnNumber(e.getPos().getColumnNum())
                             .setEndLineNumber(e.getPos().getEndLineNum())
                             .setEndColumnNumber(e.getPos().getColumnNum())).build();
-
             // Return the response with error and undefined clause type
             response = ParseResponse.newBuilder()
                     .setParseError(error)
                     .setClauseType(ParseResponse.ClauseType.UNDEFINED).build();
+            parseErrors.inc();
         } finally {
             receivedBytes.observe(request.getSerializedSize());
             requestTimer.observeDuration();
