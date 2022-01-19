@@ -232,6 +232,7 @@ public class PqlServerTest {
     assertEquals(ParseError.getDefaultInstance(), response.getParseError());
     assertEquals(ParseResponse.ClauseType.CREATE_CONNECTION, response.getClauseType());
     CreateConnectionClause conn = response.getClause().getCreateConnection();
+    assertEquals("S3_CONNECTION", conn.getName());
     assertEquals(CreateConnectionClause.ConnectionType.S3, conn.getConnectionType());
     assertEquals("access_key", conn.getAccessKey());
     assertEquals("secret_key", conn.getSecretKey());
@@ -256,10 +257,41 @@ public class PqlServerTest {
     assertEquals(ParseError.getDefaultInstance(), response.getParseError());
     assertEquals(ParseResponse.ClauseType.CREATE_CONNECTION, response.getClauseType());
     CreateConnectionClause conn = response.getClause().getCreateConnection();
+    assertEquals("DB_CONNECTION", conn.getName());
     assertEquals(CreateConnectionClause.ConnectionType.SNOWFLAKE, conn.getConnectionType());
     assertEquals("username", conn.getUsername());
     assertEquals("password", conn.getPassword());
     assertEquals("jdbc:snowflake://<account_identifier>.snowflakecomputing.com", conn.getConnectionUri());
+  }
+
+  /**
+   * Verify create db connection parses
+   */
+  @Test
+  public void testS3Dataset() throws IOException {
+    String statement = "create dataset s3_dataset "
+            + "into s3_target dataset_uri = 's3://bucket/target' "
+            + "dataset_format ( type='parquet' )"
+            + "from s3_source dataset_uri = 's3://bucket/source'"
+            + "dataset_format ( type='csv' )";
+    ParseResponse response = getStub().parse(ParseRequest.newBuilder().setStatement(statement)
+            .setTargetDialect(ParseRequest.TargetDialect.SNOWFLAKE).build());
+
+    // Validate predict clause using target dialect
+    assertEquals(ParseError.getDefaultInstance(), response.getParseError());
+    assertEquals(ParseResponse.ClauseType.CREATE_DATASET, response.getClauseType());
+    CreateDatasetClause ds = response.getClause().getCreateDataset();
+    assertEquals("S3_DATASET", ds.getName());
+    // Get target properties
+    assertEquals("S3_TARGET", ds.getTarget().getTableRef());
+    assertEquals("s3://bucket/target", ds.getTarget().getUri());
+    assertEquals(1, ds.getTarget().getFormatCount());
+    assertEquals("parquet", ds.getTarget().getFormatOrDefault("TYPE", null));
+    // Get source properties
+    assertEquals("S3_SOURCE", ds.getSource().getTableRef());
+    assertEquals("s3://bucket/source", ds.getSource().getUri());
+    assertEquals(1, ds.getSource().getFormatCount());
+    assertEquals("csv", ds.getSource().getFormatOrDefault("TYPE", null));
   }
 
   /**

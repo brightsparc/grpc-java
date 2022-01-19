@@ -1,12 +1,15 @@
 package com.predibase.pql.api;
 
+import com.google.protobuf.*;
 import com.predibase.pql.parser.*;
 import io.grpc.stub.*;
 import io.prometheus.client.*;
 import org.apache.calcite.sql.*;
 import org.apache.calcite.sql.parser.*;
+import org.apache.calcite.util.*;
 
 import java.util.*;
+import java.util.function.*;
 import java.util.logging.*;
 import java.util.stream.*;
 
@@ -102,6 +105,7 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
             // Parse the clause type based on operator name
             switch (ParseResponse.ClauseType.valueOf(opName)) {
                 case CREATE_CONNECTION: return parseCreateConnection((SqlCreateConnection) node);
+                case CREATE_DATASET: return parseCreateDataset((SqlCreateDataset) node);
                 case PREDICT: return parsePredict((SqlPredict) node, targetDialect);
                 default:
                     throw new UnsupportedOperationException(
@@ -148,6 +152,37 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
                 .setClause(Clause.newBuilder().setCreateConnection(builder.build()))
                 .setParsedSql(node.toSqlString(sourceDialect).getSql())
                 .build();
+    }
+
+    private ParseResponse parseCreateDataset(SqlCreateDataset node) {
+        CreateDatasetClause.Builder builder = CreateDatasetClause.newBuilder()
+                .setName(node.getName().getSimple());
+        if (node.getTargetRef() != null) {
+            builder.setTarget(parseDatasetRef(node.getTargetRef()));
+        }
+        if (node.getSourceRef() != null) {
+            builder.setSource(parseDatasetRef(node.getSourceRef()));
+        }
+        return ParseResponse.newBuilder()
+                .setClauseType(ParseResponse.ClauseType.CREATE_DATASET)
+                .setClause(Clause.newBuilder().setCreateDataset(builder.build()))
+                .setParsedSql(node.toSqlString(sourceDialect).getSql())
+                .build();
+    }
+
+    private DatasetRef parseDatasetRef(SqlDatasetRef node) {
+        DatasetRef.Builder builder = DatasetRef.newBuilder()
+                .setTableRef(node.getTable().getSimple())
+                .setUri(node.getUri().getValueAs(String.class));
+        if (node.getFormat() != null) {
+            // Enumerate over the list of Identifier/StringLiteral pairs to
+            final List list = (SqlNodeList) node.getFormat();
+            Pair.forEach((List<SqlIdentifier>) Util.quotientList(list, 2, 0),
+                    Util.quotientList((List<SqlLiteral>) list, 2, 1), (k, v) ->
+                            builder.putFormat(k.getSimple(), v.getValueAs(String.class))
+            );
+        }
+        return builder.build();
     }
 
     private ParseResponse parsePredict(SqlPredict predict, SqlDialect dialect) {
