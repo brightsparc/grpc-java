@@ -215,6 +215,54 @@ public class PqlServerTest {
   }
 
   /**
+   * Verify create s3 connection parses
+   */
+  @Test
+  public void testS3Connection() throws IOException {
+    String statement = "CREATE CONNECTION s3_connection "
+            + "connection_type = S3 "
+            + "aws_access_key_id = 'access_key'\n"
+            + "aws_secret_access_key = 'secret_key'\n"
+            + "aws_role_arn = 'arn:aws:iam::001234567890:role/myrole'\n"
+            + "connection_uri = 's3://bucket/path'";
+    ParseResponse response = getStub().parse(ParseRequest.newBuilder().setStatement(statement)
+            .setTargetDialect(ParseRequest.TargetDialect.SNOWFLAKE).build());
+
+    // Validate predict clause using target dialect
+    assertEquals(ParseError.getDefaultInstance(), response.getParseError());
+    assertEquals(ParseResponse.ClauseType.CREATE_CONNECTION, response.getClauseType());
+    CreateConnectionClause conn = response.getClause().getCreateConnection();
+    assertEquals(CreateConnectionClause.ConnectionType.S3, conn.getConnectionType());
+    assertEquals("access_key", conn.getAccessKey());
+    assertEquals("secret_key", conn.getSecretKey());
+    assertEquals("arn:aws:iam::001234567890:role/myrole", conn.getRoleArn());
+    assertEquals("s3://bucket/path", conn.getConnectionUri());
+  }
+
+  /**
+   * Verify create db connection parses
+   */
+  @Test
+  public void testDBConnection() throws IOException {
+    String statement = "CREATE CONNECTION db_connection "
+            + "connection_type = SNOWFLAKE "
+            + "username = 'username'\n"
+            + "password = 'password'\n"
+            + "connection_uri = 'jdbc:snowflake://<account_identifier>.snowflakecomputing.com'";
+    ParseResponse response = getStub().parse(ParseRequest.newBuilder().setStatement(statement)
+            .setTargetDialect(ParseRequest.TargetDialect.SNOWFLAKE).build());
+
+    // Validate predict clause using target dialect
+    assertEquals(ParseError.getDefaultInstance(), response.getParseError());
+    assertEquals(ParseResponse.ClauseType.CREATE_CONNECTION, response.getClauseType());
+    CreateConnectionClause conn = response.getClause().getCreateConnection();
+    assertEquals(CreateConnectionClause.ConnectionType.SNOWFLAKE, conn.getConnectionType());
+    assertEquals("username", conn.getUsername());
+    assertEquals("password", conn.getPassword());
+    assertEquals("jdbc:snowflake://<account_identifier>.snowflakecomputing.com", conn.getConnectionUri());
+  }
+
+  /**
    * To test the server, make calls with a real stub using the in-process channel.
    * @return {@link ParserGrpc.ParserBlockingStub} for testing
    * @throws IOException

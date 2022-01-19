@@ -58,7 +58,7 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
         try {
             // Parse query for statement
             SqlNode node = getParser(request.getStatement()).parseQuery();
-            // Get target dialect
+            // Get target dialect (TODO: consider de-coupling from all statements)
             SqlDialect targetDialect = getDialect(request.getTargetDialect());
 
             // Return the response from parsed sql
@@ -101,6 +101,7 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
         if (node.getKind() == SqlKind.OTHER || node.getKind() == SqlKind.OTHER_DDL) {
             // Parse the clause type based on operator name
             switch (ParseResponse.ClauseType.valueOf(opName)) {
+                case CREATE_CONNECTION: return parseCreateConnection((SqlCreateConnection) node);
                 case PREDICT: return parsePredict((SqlPredict) node, targetDialect);
                 default:
                     throw new UnsupportedOperationException(
@@ -113,6 +114,40 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
                     .setParsedSql(node.toSqlString(sourceDialect).toString())
                     .addTargetSql(node.toSqlString(targetDialect).toString()).build();
         }
+    }
+
+    private ParseResponse parseCreateConnection(SqlCreateConnection node) {
+        CreateConnectionClause.Builder builder = CreateConnectionClause.newBuilder()
+                .setName(node.getName().getSimple())
+                .setConnectionType(CreateConnectionClause.ConnectionType.valueOf(node.getType().toString()));
+
+        // If blob store, set access and secret key, else set username and password
+        switch (node.getType()) {
+            case S3:
+                builder.setAccessKey(node.getAccessKey().getValueAs(String.class));
+                builder.setSecretKey(node.getSecretKey().getValueAs(String.class));
+                if (node.getRoleArn() != null) {
+                    builder.setRoleArn(((SqlLiteral) node.getRoleArn()).getValueAs(String.class));
+                }
+                break;
+            case ADLS:
+            case GCS:
+                // TODO: Add credentials
+                break;
+            default:
+                builder.setUsername(node.getUsername().getValueAs(String.class));
+                builder.setPassword(node.getPassword().getValueAs(String.class));
+        }
+
+        if (node.getUri() != null) {
+            builder.setConnectionUri(((SqlLiteral) node.getUri()).getValueAs(String.class));
+        }
+
+        return ParseResponse.newBuilder()
+                .setClauseType(ParseResponse.ClauseType.CREATE_CONNECTION)
+                .setClause(Clause.newBuilder().setCreateConnection(builder.build()))
+                .setParsedSql(node.toSqlString(sourceDialect).getSql())
+                .build();
     }
 
     private ParseResponse parsePredict(SqlPredict predict, SqlDialect dialect) {

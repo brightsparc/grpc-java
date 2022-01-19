@@ -88,8 +88,26 @@ message Clause {
 }
 
 message CreateConnectionClause {
-  string connectionType = 1;
-  string connectionUri = 2;
+  enum ConnectionType {
+    UNDEFINED = 0;
+    ADLS = 1;
+    GCS = 2;
+    S3 = 3;
+    MYSQL = 4;
+    POSTGRESQL = 5;
+    SNOWFLAKE = 6;
+    REDSHIFT = 7;
+    BIGQUERY = 8;
+  }
+  string name = 1;
+  ConnectionType connectionType = 2;
+  optional string accessKey = 3;
+  optional string secretKey = 4;
+  optional string roleArn = 5;
+  optional string username = 6;
+  optional string password = 7;
+  string connectionUri = 8;
+  bool enabled = 9;
 }
 
 message PredictClause {

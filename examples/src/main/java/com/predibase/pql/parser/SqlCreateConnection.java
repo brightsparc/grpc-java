@@ -16,12 +16,23 @@
  */
 package com.predibase.pql.parser;
 
-import org.apache.calcite.sql.*;
-import org.apache.calcite.sql.parser.*;
-import org.apache.calcite.sql.type.*;
-import org.apache.calcite.util.*;
+import org.apache.calcite.sql.SqlCreate;
+import org.apache.calcite.sql.SqlIdentifier;
+import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlLiteral;
+import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.SqlOperator;
+import org.apache.calcite.sql.SqlSpecialOperator;
+import org.apache.calcite.sql.SqlWriter;
+import org.apache.calcite.sql.Symbolizable;
+import org.apache.calcite.sql.parser.SqlParserPos;
+import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.util.ImmutableNullableList;
 
-import java.util.*;
+import org.checkerframework.dataflow.qual.Pure;
+
+import java.util.List;
+import java.util.Objects;
 
 /**
  * A <code>SqlCreateConnection</code> is a node of a parse tree {@code CREATE CONNECTION}
@@ -79,24 +90,25 @@ public class SqlCreateConnection extends SqlCreate {
 
   public final SqlIdentifier name;
   public final ConnectionType connectionType;
-  public SqlNode accessKey;
-  public SqlNode secretKey;
+  public SqlSecretLiteral accessKey;
+  public SqlSecretLiteral secretKey;
   public SqlNode roleArn;
-  public SqlNode username;
-  public SqlNode password;
+  public SqlSecretLiteral username;
+  public SqlSecretLiteral password;
   public final SqlNode connectionUri;
   public final SqlLiteral enabled;
 
   //~ Static Fields -----------------------------------------------------------
 
   public static final SqlOperator OPERATOR =
-      new SqlSpecialOperator("CREATE CONNECTION", SqlKind.OTHER_DDL);
+          new SqlSpecialOperator("CREATE CONNECTION", SqlKind.OTHER_DDL);
 
   /** Creates a SqlCreateSchedule. */
   public SqlCreateConnection(SqlParserPos pos, boolean replace, boolean ifNotExists,
-      SqlIdentifier name, ConnectionType connectionType,
-      SqlNode accessKey, SqlNode secretKey, SqlNode roleArn, SqlNode username, SqlNode password,
-      SqlNode connectionUri, SqlLiteral enabled) {
+                             SqlIdentifier name, ConnectionType connectionType,
+                             SqlSecretLiteral accessKey, SqlSecretLiteral secretKey, SqlNode roleArn,
+                             SqlSecretLiteral username, SqlSecretLiteral password,
+                             SqlNode connectionUri, SqlLiteral enabled) {
     super(OPERATOR, pos, replace, ifNotExists);
     this.name = Objects.requireNonNull(name, "name");
     this.connectionType = Objects.requireNonNull(connectionType, "connectionType");
@@ -121,41 +133,50 @@ public class SqlCreateConnection extends SqlCreate {
 
   @Override public List<SqlNode> getOperandList() {
     return ImmutableNullableList.of(name, connectionType.symbol(SqlParserPos.ZERO),
-        accessKey, secretKey, roleArn, username, password, connectionUri, enabled);
+            accessKey, secretKey, roleArn, username, password, connectionUri, enabled);
   }
 
+  @Pure
   public final SqlIdentifier getName() {
     return name;
   }
 
+  @Pure
   public final ConnectionType getType() {
     return connectionType;
   }
 
+  @Pure
   public final SqlNode getUri() {
     return connectionUri;
   }
 
-  public final SqlNode getAccessKey() {
+  @Pure
+  public final SqlSecretLiteral getAccessKey() {
     return accessKey;
   }
 
-  public final SqlNode getSecretKey() {
+  @Pure
+  public final SqlSecretLiteral getSecretKey() {
     return secretKey;
   }
 
+  @Pure
   public final SqlNode getRoleArn() {
     return roleArn;
   }
 
-  public final SqlNode getUsername() {
+  @Pure
+  public final SqlSecretLiteral getUsername() {
     return username;
   }
 
-  public final SqlNode getPassword() {
+  @Pure
+  public final SqlSecretLiteral getPassword() {
     return password;
   }
 
+  @Pure
   public final SqlLiteral getEnabled() {
     return enabled;
   }
