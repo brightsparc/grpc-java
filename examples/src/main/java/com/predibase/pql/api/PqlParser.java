@@ -124,7 +124,8 @@ public class PqlParser  extends ParserGrpc.ParserImplBase {
         }
 
         // Add any given items required
-        builder.addAllGivenList(parsePredictGiven(predict));
+        builder.addAllGivenList(predict.getGivenItems().map(item ->
+                parseGivenItem(item)).collect(Collectors.toList()));
 
         // Return the target sql list
         List<String> targetSqlList = predict.getGivenSelect()
@@ -139,55 +140,48 @@ public class PqlParser  extends ParserGrpc.ParserImplBase {
                 .build();
     }
 
-    private List<GivenItem> parsePredictGiven(SqlPredict predict) throws UnsupportedOperationException {
-        List<SqlGivenItem> items = predict.getGivenItems().collect(Collectors.toList());
+    private GivenItem parseGivenItem(SqlGivenItem item) throws UnsupportedOperationException {
+        // For each given type parse the node value to and set on builder
+        GivenItem.Builder builder = GivenItem.newBuilder()
+                .setType(GivenItem.GivenType.valueOf(item.getGivenType().toString()));
 
-        return items.stream().map(item -> {
-            GivenItem.Builder builder = GivenItem.newBuilder()
-                    .setType(GivenItem.GivenType.valueOf(item.getGivenType().toString()));
-            // For each given type parse the node value to add the property to the list
-            switch (item.getGivenType()) {
-                case IDENTIFIER:
-                    SqlIdentifier identifier = (SqlIdentifier) item.getValue();
-                    builder.addIdentifierValue(identifier.getSimple());
-                    break;
-                case NUMERIC:
-                    SqlNumericLiteral numValue = (SqlNumericLiteral) item.getValue();
-                    builder.addNumericValue(numValue.getValueAs(Double.class));
-                    break;
-                case STRING:
-                    SqlLiteral strValue = (SqlLiteral) item.getValue();
-                    builder.addStringValue(strValue.getValueAs(String.class));
-                    break;
-                case ARRAY:
-                    SqlBasicCall arr = (SqlBasicCall) item.getValue();
-                    arr.getOperandList().forEach(a -> {
-                        if (a instanceof SqlNumericLiteral) {
-                            SqlNumericLiteral arrItem = (SqlNumericLiteral) a;
-                            builder.addNumericValue(arrItem.getValueAs(Double.class));
-                        } else if (a instanceof SqlLiteral) {
-                            SqlLiteral arrItem = (SqlLiteral) item.getValue();
-                            builder.addStringValue(arrItem.getValueAs(String.class));
-                        } else {
-                            throw new UnsupportedOperationException(String.format(
-                                    "Unexpected array type: %s", a.getKind()));
-                        }
-                    });
-                    break;
-                case RANGE:
-                    SqlGivenRange rng = (SqlGivenRange) item.getValue();
-                    builder.setMinValue(rng.getMin().getValueAs(Double.class));
-                    builder.setMaxValue(rng.getMax().getValueAs(Double.class));
-                    if (rng.getStep() != null) {
-                        builder.setStepValue(rng.getStep().getValueAs(Double.class));
+        switch (item.getGivenType()) {
+            case IDENTIFIER:
+                SqlIdentifier identifier = (SqlIdentifier) item.getValue();
+                return builder.addIdentifierValue(identifier.getSimple()).build();
+            case NUMERIC:
+                SqlNumericLiteral numValue = (SqlNumericLiteral) item.getValue();
+                return builder.addNumericValue(numValue.getValueAs(Double.class)).build();
+            case STRING:
+                SqlLiteral strValue = (SqlLiteral) item.getValue();
+                return builder.addStringValue(strValue.getValueAs(String.class)).build();
+            case ARRAY:
+                SqlBasicCall arr = (SqlBasicCall) item.getValue();
+                arr.getOperandList().forEach(a -> {
+                    if (a instanceof SqlNumericLiteral) {
+                        SqlNumericLiteral arrItem = (SqlNumericLiteral) a;
+                        builder.addNumericValue(arrItem.getValueAs(Double.class));
+                    } else if (a instanceof SqlLiteral) {
+                        SqlLiteral arrItem = (SqlLiteral) item.getValue();
+                        builder.addStringValue(arrItem.getValueAs(String.class));
+                    } else {
+                        throw new UnsupportedOperationException(String.format(
+                                "Unexpected array type: %s", a.getKind()));
                     }
-                    break;
-                default:
-                    throw new UnsupportedOperationException(String.format(
-                            "Unexpected identifier type: %s", item.getGivenType()));
-            }
-            return builder.build();
-        }).collect(Collectors.toList());
+                });
+                return builder.build();
+            case RANGE:
+                SqlGivenRange rng = (SqlGivenRange) item.getValue();
+                builder.setMinValue(rng.getMin().getValueAs(Double.class));
+                builder.setMaxValue(rng.getMax().getValueAs(Double.class));
+                if (rng.getStep() != null) {
+                    builder.setStepValue(rng.getStep().getValueAs(Double.class));
+                }
+                return builder.build();
+            default:
+                throw new UnsupportedOperationException(String.format(
+                        "Unexpected identifier type: %s", item.getGivenType()));
+        }
     }
 
 }
