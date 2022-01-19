@@ -105,19 +105,26 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
             // Parse the clause type based on operator name
             switch (ParseResponse.ClauseType.valueOf(opName)) {
                 case CREATE_CONNECTION: return parseCreateConnection((SqlCreateConnection) node);
-                case CREATE_DATASET: return parseCreateDataset((SqlCreateDataset) node);
+                case CREATE_DATASET: return parseCreateDataset((SqlCreateDataset) node, targetDialect);
+                case CREATE_MODEL: return parseCreateModel((SqlCreateModel) node, targetDialect);
                 case PREDICT: return parsePredict((SqlPredict) node, targetDialect);
                 default:
                     throw new UnsupportedOperationException(
                             String.format("Operator %s not implemented", opName));
             }
         } else {
-            // Return native sql in the target dialect for the source node
-            return ParseResponse.newBuilder()
-                    .setClauseType(ParseResponse.ClauseType.NATIVE_SQL)
-                    .setParsedSql(node.toSqlString(sourceDialect).toString())
-                    .addTargetSql(node.toSqlString(targetDialect).toString()).build();
+            return parseNativeSql(node, targetDialect);
         }
+    }
+
+    private ParseResponse parseNativeSql(SqlNode node, SqlDialect targetDialect) {
+        // Return native sql in the target dialect for the source node
+        String targetSql = node.toSqlString(targetDialect).toString();
+        return ParseResponse.newBuilder()
+                .setClauseType(ParseResponse.ClauseType.NATIVE_SQL)
+                .setClause(Clause.newBuilder().setNativeSqlClause(
+                        NativeSqlClause.newBuilder().setQuery(targetSql)))
+                .setParsedSql(node.toSqlString(sourceDialect).toString()).build();
     }
 
     private ParseResponse parseCreateConnection(SqlCreateConnection node) {
@@ -154,7 +161,7 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
                 .build();
     }
 
-    private ParseResponse parseCreateDataset(SqlCreateDataset node) {
+    private ParseResponse parseCreateDataset(SqlCreateDataset node, SqlDialect targetDialect) {
         CreateDatasetClause.Builder builder = CreateDatasetClause.newBuilder()
                 .setName(node.getName().getSimple());
         if (node.getTargetRef() != null) {
@@ -162,6 +169,10 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
         }
         if (node.getSourceRef() != null) {
             builder.setSource(parseDatasetRef(node.getSourceRef()));
+        }
+        if (node.getQuery() != null) {
+            String targetSql = node.getQuery().toSqlString(targetDialect).toString();
+            builder.setQuery(targetSql);
         }
         return ParseResponse.newBuilder()
                 .setClauseType(ParseResponse.ClauseType.CREATE_DATASET)
@@ -172,7 +183,7 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
 
     private DatasetRef parseDatasetRef(SqlDatasetRef node) {
         DatasetRef.Builder builder = DatasetRef.newBuilder()
-                .setTableRef(node.getTable().getSimple())
+                .setTable(node.getTable().getSimple())
                 .setUri(node.getUri().getValueAs(String.class));
         if (node.getFormat() != null) {
             // Enumerate over the list of Identifier/StringLiteral pairs to
@@ -185,7 +196,20 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
         return builder.build();
     }
 
-    private ParseResponse parsePredict(SqlPredict predict, SqlDialect dialect) {
+    private ParseResponse parseCreateModel(SqlCreateModel node, SqlDialect targetDialect) {
+        CreateModelClause.Builder builder = CreateModelClause.newBuilder()
+                .setName(node.getName().getSimple());
+        if (node.getConfig() != null) {
+            builder.setConfig(((SqlLiteral) node.getConfig()).getValueAs(String.class));
+        }
+        return ParseResponse.newBuilder()
+                .setClauseType(ParseResponse.ClauseType.CREATE_MODEL)
+                .setClause(Clause.newBuilder().setCreateModel(builder.build()))
+                .setParsedSql(node.toSqlString(sourceDialect).getSql())
+                .build();
+    }
+
+    private ParseResponse parsePredict(SqlPredict predict, SqlDialect targetDialect) {
         // Get target list
         List<String> targetList = predict.getTargetList().stream().map(t -> {
             SqlIdentifier target = (SqlIdentifier) t;
@@ -213,16 +237,15 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
         builder.addAllGivenList(predict.getGivenItems().map(item ->
                 parseGivenItem(item)).collect(Collectors.toList()));
 
-        // Return the target sql list
-        List<String> targetSqlList = predict.getGivenSelect()
-                .map(s -> s.toSqlString(dialect).toString())
-                .collect(Collectors.toList());
+        // Add any queries
+        builder.addAllQuery(predict.getGivenSelect()
+                .map(s -> s.toSqlString(targetDialect).toString())
+                .collect(Collectors.toList()));
 
         return ParseResponse.newBuilder()
                 .setClauseType(ParseResponse.ClauseType.PREDICT)
                 .setClause(Clause.newBuilder().setPredictClause(builder.build()).build())
                 .setParsedSql(predict.toSqlString(sourceDialect).getSql())
-                .addAllTargetSql(targetSqlList)
                 .build();
     }
 

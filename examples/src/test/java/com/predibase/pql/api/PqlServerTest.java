@@ -71,8 +71,7 @@ public class PqlServerTest {
     assertEquals(ParseError.getDefaultInstance(), response.getParseError());
     assertEquals(ParseResponse.ClauseType.NATIVE_SQL, response.getClauseType());
     assertEquals("SELECT *\nFROM \"S1\"", response.getParsedSql());
-    assertEquals(1, response.getTargetSqlCount());
-    assertEquals("SELECT *\nFROM `S1`", response.getTargetSql(0));
+    assertEquals("SELECT *\nFROM `S1`", response.getClause().getNativeSqlClause().getQuery());
   }
 
   final String predictStmt = String.format("PREDICT t1, t2 WITH explanation INTO d USING m GIVEN (%s)", sqlStatement);
@@ -99,8 +98,7 @@ public class PqlServerTest {
     assertEquals(PredictClause.WithQualifier.EXPLANATION, predict.getWithQualifier());
     assertEquals("D", predict.getInto());
     assertEquals("M", predict.getModel());
-    assertEquals(1, response.getTargetSqlCount());
-    assertEquals("SELECT *\nFROM \"S1\"", response.getTargetSql(0));
+    assertEquals("SELECT *\nFROM \"S1\"", predict.getQuery(0));
   }
 
   /**
@@ -119,8 +117,8 @@ public class PqlServerTest {
             "USING \"M\"\n" +
             "GIVEN (SELECT *\n" +
             "FROM \"S1\")", response.getParsedSql());
-    assertEquals(1, response.getTargetSqlCount());
-    assertEquals("SELECT *\nFROM `S1`", response.getTargetSql(0));
+    PredictClause predict = response.getClause().getPredictClause();
+    assertEquals("SELECT *\nFROM `S1`", predict.getQuery(0));
   }
 
   /**
@@ -143,8 +141,7 @@ public class PqlServerTest {
             response.getParsedSql());
     PredictClause predict = response.getClause().getPredictClause();
     // Verify we also have a select
-    assertEquals(1, response.getTargetSqlCount());
-    assertEquals("SELECT *\nFROM \"S1\"", response.getTargetSql(0));
+    assertEquals("SELECT *\nFROM \"S1\"", predict.getQuery(0));
     // Check the given list has all the items
     assertEquals(5, predict.getGivenListCount());
     assertEquals(GivenItem.GivenType.IDENTIFIER, predict.getGivenList(0).getType());
@@ -241,7 +238,7 @@ public class PqlServerTest {
   }
 
   /**
-   * Verify create db connection parses
+   * Verify create db connection.
    */
   @Test
   public void testDBConnection() throws IOException {
@@ -265,7 +262,7 @@ public class PqlServerTest {
   }
 
   /**
-   * Verify create db connection parses
+   * Verify create s3 dataset.
    */
   @Test
   public void testS3Dataset() throws IOException {
@@ -283,15 +280,58 @@ public class PqlServerTest {
     CreateDatasetClause ds = response.getClause().getCreateDataset();
     assertEquals("S3_DATASET", ds.getName());
     // Get target properties
-    assertEquals("S3_TARGET", ds.getTarget().getTableRef());
+    assertEquals("S3_TARGET", ds.getTarget().getTable());
     assertEquals("s3://bucket/target", ds.getTarget().getUri());
     assertEquals(1, ds.getTarget().getFormatCount());
     assertEquals("parquet", ds.getTarget().getFormatOrDefault("TYPE", null));
     // Get source properties
-    assertEquals("S3_SOURCE", ds.getSource().getTableRef());
+    assertEquals("S3_SOURCE", ds.getSource().getTable());
     assertEquals("s3://bucket/source", ds.getSource().getUri());
     assertEquals(1, ds.getSource().getFormatCount());
     assertEquals("csv", ds.getSource().getFormatOrDefault("TYPE", null));
+  }
+
+  /**
+   * Verify create db dataset as select.
+   */
+  @Test
+  public void testDBDatasetView() throws IOException {
+    String statement = "create dataset db_dataset as "
+            + "select * from db_connection_name.table_name "
+            + "where date_col < now()";
+    ParseResponse response = getStub().parse(ParseRequest.newBuilder().setStatement(statement)
+            .setTargetDialect(ParseRequest.TargetDialect.SNOWFLAKE).build());
+
+    // Validate predict clause using target dialect
+    assertEquals(ParseError.getDefaultInstance(), response.getParseError());
+    assertEquals(ParseResponse.ClauseType.CREATE_DATASET, response.getClauseType());
+    CreateDatasetClause ds = response.getClause().getCreateDataset();
+    assertEquals("DB_DATASET", ds.getName());
+    // Verify target and source are empty
+    assertEquals(DatasetRef.getDefaultInstance(), ds.getTarget());
+    assertEquals(DatasetRef.getDefaultInstance(), ds.getSource());
+    // Verify query
+    assertEquals("SELECT *\n" +
+            "FROM \"DB_CONNECTION_NAME\".\"TABLE_NAME\"\n" +
+            "WHERE \"DATE_COL\" < \"NOW\"()", ds.getQuery());
+  }
+
+  /**
+   * Test creating a model from config.
+   */
+  @Test
+  public void testCreateModelFromConfig() throws IOException {
+    String statement = "CREATE MODEL m CONFIG '{ \"x\": 1 }' FROM ds";
+    ParseResponse response = getStub().parse(ParseRequest.newBuilder().setStatement(statement)
+            .setTargetDialect(ParseRequest.TargetDialect.SNOWFLAKE).build());
+
+    // Validate predict clause using target dialect
+    assertEquals(ParseError.getDefaultInstance(), response.getParseError());
+    assertEquals(ParseResponse.ClauseType.CREATE_MODEL, response.getClauseType());
+    CreateModelClause model = response.getClause().getCreateModel();
+    assertEquals("M", model.getName());
+    // Verify target and source are empty
+    assertEquals("{ \"x\": 1 }", model.getConfig());
   }
 
   /**

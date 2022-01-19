@@ -65,7 +65,6 @@ message ParseResponse {
   ClauseType clauseType = 2;
   Clause clause = 3;
   string parsedSql = 4;
-  repeated string targetSql = 5;
 }
 
 message ParseError {
@@ -81,11 +80,17 @@ message ParserPos {
   int32 endColumnNumber = 4;
 }
 
-// Clause is one of the following
+// Clause is one of the following (matching ClauseType enum)
 message Clause {
-  optional CreateConnectionClause createConnection = 1;
-  optional CreateDatasetClause createDataset = 2;
-  optional PredictClause predictClause = 100; // TODO: Can we map this to the enum types?
+  optional NativeSqlClause nativeSqlClause = 1;
+  optional CreateConnectionClause createConnection = 10;
+  optional CreateDatasetClause createDataset = 11;
+  optional CreateModelClause createModel = 12;
+  optional PredictClause predictClause = 100;
+}
+
+message NativeSqlClause {
+  string query = 1;
 }
 
 message CreateConnectionClause {
@@ -113,14 +118,50 @@ message CreateConnectionClause {
 
 message CreateDatasetClause {
   string name = 1;
-  DatasetRef target = 2;
-  DatasetRef source = 3;
+  optional DatasetRef target = 2;
+  optional DatasetRef source = 3;
+  optional string query = 4;
 }
 
 message DatasetRef {
-  string tableRef = 1;
+  string table = 1;
   string uri = 2;
   map<string, string> format = 3;
+}
+
+message CreateModelClause {
+  string name = 1;
+  string config = 2;
+  repeated Feature featureList = 3;
+  repeated string targetList = 4;
+  map<string, GivenItem> combiner = 5;
+  map<string, GivenItem> trainer = 6;
+  repeated string splitByList = 7;
+  optional DatasetRef sourceRef = 8;
+  optional string query = 9;
+}
+
+message Feature {
+  enum FeatureType {
+    UNDEFINED = 0;
+    BINARY = 1;
+    NUMERIC = 2;
+    CATEGORY = 3;
+    SET = 4;
+    BAG = 5;
+    SEQUENCE = 6;
+    TEXT = 7;
+    TIMESERIES = 8;
+    AUDIO = 9;
+    IMAGE = 10;
+    DATE = 11;
+    GEOMETRY = 12;
+    VECTOR = 13;
+  }
+  string name = 1;
+  FeatureType type = 2;
+  map<string, GivenItem> encoder = 4;
+  map<string, GivenItem> decoder = 5;
 }
 
 message PredictClause {
@@ -141,6 +182,7 @@ message PredictClause {
   string model = 5;
   optional int32 version = 6;
   repeated GivenItem givenList = 7;
+  repeated string query = 8;
 }
 
 message GivenItem {
