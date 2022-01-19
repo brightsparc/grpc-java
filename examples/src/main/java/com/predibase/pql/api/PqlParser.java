@@ -51,7 +51,7 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
 
     @Override
     public void parse(ParseRequest request, StreamObserver<ParseResponse> responseObserver) {
-        logger.info(String.format("Got request %s", request.getStatement()));
+        logger.fine(String.format("Parse request: %s", request.getStatement()));
         Histogram.Timer requestTimer = requestLatency.startTimer();
 
         ParseResponse response;
@@ -62,7 +62,11 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
             SqlDialect targetDialect = getDialect(request.getTargetDialect());
 
             // Return the response from parsed sql
-            response = parseSql(node, targetDialect);
+            if (node instanceof SqlCall) {
+                response = parseSql((SqlCall) node, targetDialect);
+            } else {
+                throw new UnsupportedOperationException(String.format("Node %s not supported", node.getKind()));
+            }
         } catch (SqlParseException e) {
             // Print stacktrace with error
             e.printStackTrace();
@@ -89,25 +93,21 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
         responseObserver.onCompleted();
     }
 
-    private ParseResponse parseSql(SqlNode node, SqlDialect targetDialect) {
-        if (node.getKind() == SqlKind.OTHER && node instanceof SqlCall) {
-            // Get clause type from operator name
-            String opName = ((SqlCall) node).getOperator().getName().replace(" ", "_");
+    private ParseResponse parseSql(SqlCall node, SqlDialect targetDialect) {
+        String opName = node.getOperator().getName().replace(" ", "_");
+        logger.info(String.format("Parse operator: %s ", opName));
+        requests.labels(opName).inc();
 
-            // Add logging for this specific operator
-            logger.info("Matched operator " + opName);
-            requests.labels(opName).inc();
-
+        if (node.getKind() == SqlKind.OTHER || node.getKind() == SqlKind.OTHER_DDL) {
             // Parse the clause type based on operator name
             switch (ParseResponse.ClauseType.valueOf(opName)) {
                 case PREDICT: return parsePredict((SqlPredict) node, targetDialect);
                 default:
                     throw new UnsupportedOperationException(
-                            String.format("Operator %s not supported", opName));
+                            String.format("Operator %s not implemented", opName));
             }
         } else {
             // Return native sql in the target dialect for the source node
-            requests.labels("NATIVE_SQL").inc();
             return ParseResponse.newBuilder()
                     .setClauseType(ParseResponse.ClauseType.NATIVE_SQL)
                     .setParsedSql(node.toSqlString(sourceDialect).toString())

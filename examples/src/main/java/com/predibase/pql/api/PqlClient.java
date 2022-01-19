@@ -43,7 +43,7 @@ public class PqlClient {
 
     /** Say parse to server. */
     public ParseResponse parse(String statement, ParseRequest.TargetDialect targetDialect) {
-        logger.info(String.format("Will try to parse %s for dialect %s ...",
+        logger.fine(String.format("Will try to parse %s for dialect %s ...",
                 statement, targetDialect));
         ParseRequest request = ParseRequest.newBuilder()
                 .setStatement(statement).setTargetDialect(targetDialect).build();
@@ -54,7 +54,7 @@ public class PqlClient {
             logger.log(Level.WARNING, "RPC failed: {0}", e.getStatus());
             return null;
         }
-        logger.info(String.format("Clause type %s, parsed sql: %s",
+        logger.fine(String.format("Clause type %s, parsed sql: %s",
                 response.getClauseType(), response.getParsedSql()));
         return response;
     }
@@ -96,10 +96,13 @@ public class PqlClient {
                 .build();
         try {
             PqlClient client = new PqlClient(channel);
-            // Send 1000 requests
+            logger.info(String.format("Sending %d requests...", requestCount));
+            long startTime = System.currentTimeMillis();
             for (int i = 0; i < requestCount; i++) {
                 client.parse(statement, dialect);
             }
+            double duration = (System.currentTimeMillis() - startTime)/1000.0;
+            logger.info(String.format("That took %.2f secs, %.2f requests/second", duration, requestCount/duration));
         } finally {
             // ManagedChannels use resources like threads and TCP connections. To prevent leaking these
             // resources the channel should be shut down when it will no longer be used. If it may be used
