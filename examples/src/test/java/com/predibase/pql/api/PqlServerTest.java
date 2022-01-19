@@ -75,7 +75,7 @@ public class PqlServerTest {
     assertEquals("SELECT *\nFROM `S1`", response.getTargetSql(0));
   }
 
-  final String predictStmt = "PREDICT t1, t2 INTO d USING m GIVEN " + sqlStatement;
+  final String predictStmt = String.format("PREDICT t1, t2 INTO d USING m GIVEN (%s)", sqlStatement);
 
   /**
    * Verify predict returns expected values for snowflake dialect.
@@ -93,7 +93,7 @@ public class PqlServerTest {
             "GIVEN (SELECT *\n" +
             "FROM \"S1\")", response.getParsedSql());
     PredictClause predict = response.getClause().getPredictClause();
-    assertEquals("D", predict.getTable());
+    assertEquals("D", predict.getInto());
     assertEquals("M", predict.getModel());
     assertEquals(1, response.getTargetSqlCount());
     assertEquals("SELECT *\nFROM \"S1\"", response.getTargetSql(0));
@@ -117,6 +117,47 @@ public class PqlServerTest {
             "FROM \"S1\")", response.getParsedSql());
     assertEquals(1, response.getTargetSqlCount());
     assertEquals("SELECT *\nFROM `S1`", response.getTargetSql(0));
+  }
+
+  /**
+   * Verify predict given returns a list of objects with the correct types.
+   */
+  @Test
+  public void testPredictGivenItems() throws IOException {
+    String predictGiven = predictStmt + ", i=id, s='s', f=0.1, a=ARRAY[1,2], r=given_range(1,100,10)";
+    ParseResponse response = getStub().parse(ParseRequest.newBuilder().setStatement(predictGiven)
+            .setTargetDialect(ParseRequest.TargetDialect.SNOWFLAKE).build());
+
+    // Validate predict clause using target dialect
+    assertEquals(ParseError.getDefaultInstance(), response.getParseError());
+    assertEquals(ParseResponse.ClauseType.PREDICT, response.getClauseType());
+    assertEquals("PREDICT (\"T1\", \"T2\") INTO \"D\"\n" +
+            "USING \"M\"\n" +
+            "GIVEN (SELECT *\n" +
+            "FROM \"S1\"), " +
+            "\"I\" = \"ID\", \"S\" = 's', \"F\" = 0.1, \"A\" = ARRAY[1, 2], \"R\" = GIVEN_RANGE (1, 100, 10)",
+            response.getParsedSql());
+    PredictClause predict = response.getClause().getPredictClause();
+    assertEquals("D", predict.getInto());
+    assertEquals("M", predict.getModel());
+    // Check the given list has all of the items
+    assertEquals(5, predict.getGivenListCount());
+    assertEquals(GivenItem.GivenType.IDENTIFIER, predict.getGivenList(0).getType());
+    assertEquals("ID", predict.getGivenList(0).getIdentifierValue(0));
+    assertEquals(GivenItem.GivenType.STRING, predict.getGivenList(1).getType());
+    assertEquals("s", predict.getGivenList(1).getStringValue(0));
+    assertEquals(GivenItem.GivenType.NUMERIC, predict.getGivenList(2).getType());
+    assertEquals(0.1, predict.getGivenList(2).getNumericValue(0), 0);
+    assertEquals(GivenItem.GivenType.ARRAY, predict.getGivenList(3).getType());
+    assertEquals(1, predict.getGivenList(3).getNumericValue(0), 0);
+    assertEquals(2, predict.getGivenList(3).getNumericValue(1), 0);
+    assertEquals(GivenItem.GivenType.RANGE, predict.getGivenList(4).getType());
+    assertEquals(1, predict.getGivenList(4).getMinValue(), 0);
+    assertEquals(100, predict.getGivenList(4).getMaxValue(), 0);
+    assertEquals(10, predict.getGivenList(4).getStepValue(), 0);
+    // Verify we also have a select
+    assertEquals(1, response.getTargetSqlCount());
+    assertEquals("SELECT *\nFROM \"S1\"", response.getTargetSql(0));
   }
 
   /**

@@ -91,7 +91,7 @@ public class SqlPredict extends SqlCall {
   public final PredictType predictType;
   public final SqlNodeList targetList;
   public final WithQualifier withQualifier;
-  public final SqlNode table;
+  public final SqlNode into;
   public final SqlModelRef model;
   public final SqlNodeList given;
 
@@ -102,7 +102,7 @@ public class SqlPredict extends SqlCall {
                     PredictType predictType,
                     SqlNodeList targetList,
                     WithQualifier withQualifier,
-                    SqlNode table,
+                    SqlNode into,
                     SqlModelRef model,
                     SqlNodeList given) {
     super(pos);
@@ -113,7 +113,7 @@ public class SqlPredict extends SqlCall {
 
     this.withQualifier = Objects.requireNonNull(withQualifier, "withQualifier");
 
-    this.table = table; // may be null
+    this.into = into; // may be null
 
     this.model = Objects.requireNonNull(model, "model");
 
@@ -142,8 +142,8 @@ public class SqlPredict extends SqlCall {
     return targetList;
   }
 
-  public final SqlNode getTable() {
-    return table;
+  public final SqlNode getInto() {
+    return into;
   }
 
   public final SqlModelRef getModel() {
@@ -178,7 +178,7 @@ public class SqlPredict extends SqlCall {
   @Override public List<SqlNode> getOperandList() {
     // Return operand list with version as numeric literal
     return ImmutableNullableList.of(predictType.symbol(SqlParserPos.ZERO), targetList,
-        withQualifier.symbol(SqlParserPos.ZERO), table, model, given);
+        withQualifier.symbol(SqlParserPos.ZERO), into, model, given);
   }
 
   // TODO: Consider if we need to support setOperand, and change types to non-final
@@ -215,9 +215,9 @@ public class SqlPredict extends SqlCall {
       writer.print(withQualifier.toString());
     }
 
-    if (table != null) {
+    if (into != null) {
       writer.keyword("INTO");
-      table.unparse(writer, leftPrec, rightPrec);
+      into.unparse(writer, leftPrec, rightPrec);
     }
 
     writer.newlineAndIndent();

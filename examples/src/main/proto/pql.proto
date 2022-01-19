@@ -100,8 +100,34 @@ message PredictClause {
   }
   PredictType predictType = 1;
   repeated string targetList = 2;
-  optional string withQualifier = 3;
-  string table = 4;
+  enum WithQualifier {
+    EMPTY = 0;
+    EXPLANATION = 1;
+    CONFIDENCE = 2;
+  }
+  optional WithQualifier withQualifier = 3;
+  string into = 4;
   string model = 5;
-  uint32 version = 6;
+  optional int32 version = 6;
+  repeated GivenItem givenList = 7;
+}
+
+message GivenItem {
+  string name = 1;
+  enum GivenType {
+    UNDEFINED = 0;
+    IDENTIFIER = 1;
+    NUMERIC = 2;
+    STRING = 3;
+    ARRAY = 4;
+    RANGE = 5;
+  }
+  GivenType type = 2;
+  repeated string identifierValue = 3;
+  // TODO: Do we need to discriminate by integer vs double
+  repeated double numericValue = 4;
+  repeated string stringValue = 5;
+  optional double minValue = 6;
+  optional double maxValue = 7;
+  optional double stepValue = 8;
 }
