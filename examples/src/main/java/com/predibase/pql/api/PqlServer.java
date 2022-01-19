@@ -16,8 +16,10 @@
 
 package com.predibase.pql.api;
 
-import io.grpc.Server;
-import io.grpc.ServerBuilder;
+import io.grpc.*;
+import io.prometheus.client.*;
+import me.dinowernli.grpc.prometheus.*;
+
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
@@ -30,15 +32,25 @@ public class PqlServer {
     private static final Logger logger = Logger.getLogger(PqlServer.class.getName());
 
     private Server server;
+    private PrometheusServer prometheusServer;
 
     private void start() throws IOException {
-        /* The port on which the server should run */
-        int port = 50051;
-        server = ServerBuilder.forPort(port)
-                .addService(new PqlParser())
+        // Create the metrics port
+        // TODO: Add tracing interceptor
+        int grpcPort = 50051;
+        MonitoringServerInterceptor monitoringInterceptor =
+                MonitoringServerInterceptor.create(Configuration.cheapMetricsOnly());
+        server = ServerBuilder.forPort(grpcPort)
+                .addService(ServerInterceptors.intercept(new PqlParser(), monitoringInterceptor))
                 .build()
                 .start();
-        logger.info("Server started, listening on " + port);
+
+        // Create the metrics server
+        int metricsPort = 8081;
+        prometheusServer = new PrometheusServer(CollectorRegistry.defaultRegistry, metricsPort);
+        prometheusServer.start();
+
+        logger.info(String.format("Server started, grpc listening on %d, metrics on %d", grpcPort, metricsPort));
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run() {
@@ -57,6 +69,7 @@ public class PqlServer {
     private void stop() throws InterruptedException {
         if (server != null) {
             server.shutdown().awaitTermination(30, TimeUnit.SECONDS);
+            prometheusServer.shutdown();
         }
     }
 
@@ -66,6 +79,7 @@ public class PqlServer {
     private void blockUntilShutdown() throws InterruptedException {
         if (server != null) {
             server.awaitTermination();
+            prometheusServer.shutdown();
         }
     }
 

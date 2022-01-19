@@ -10,6 +10,9 @@ plugins {
 repositories {
     maven { // The google mirror is less flaky than mavenCentral()
         url "https://maven-central.storage-download.googleapis.com/maven2/" }
+    maven {
+        url "https://raw.github.com/dinowernli/maven-repos/master"
+    }
     mavenCentral()
     mavenLocal()
 }
@@ -37,6 +40,11 @@ dependencies {
     // Add calcite implementation
     implementation 'org.apache.calcite:calcite-core:1.29.0'
     implementation 'org.apache.calcite.avatica:avatica-core:1.20.0'
+
+    // gRPC metrics https://github.com/grpc-ecosystem/java-grpc-prometheus
+    implementation 'io.prometheus:simpleclient:0.14.1'
+    implementation 'io.prometheus:simpleclient_common:0.14.1'
+    implementation 'me.dinowernli:java-grpc-prometheus:0.4.0'
 
     runtimeOnly "io.grpc:grpc-netty-shaded:${grpcVersion}"
 

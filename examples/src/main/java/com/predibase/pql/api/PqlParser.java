@@ -2,6 +2,7 @@ package com.predibase.pql.api;
 
 import com.predibase.pql.parser.*;
 import io.grpc.stub.*;
+import io.prometheus.client.*;
 import org.apache.calcite.sql.*;
 import org.apache.calcite.sql.parser.*;
 
@@ -12,6 +13,14 @@ import java.util.stream.*;
 public class PqlParser extends ParserGrpc.ParserImplBase {
     // TODO: Use structured logging
     private static final Logger logger = Logger.getLogger(PqlServer.class.getName());
+    // Create prom metrics for requests, payload size, and latency
+    static final Counter requests = Counter.build()
+            .name("requests").help("Total requests.")
+            .labelNames("operator").register();
+    static final Summary receivedBytes = Summary.build()
+            .name("requests_size_bytes").help("Request size in bytes.").register();
+    static final Histogram requestLatency = Histogram.build()
+            .name("requests_latency_seconds").help("Request latency in seconds.").register();
 
     // Create static methods for parser factory and source dialect
     final static SqlParser.Config pqlParser = SqlParser.config()
@@ -41,6 +50,7 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
     @Override
     public void parse(ParseRequest request, StreamObserver<ParseResponse> responseObserver) {
         logger.info(String.format("Got request %s", request.getStatement()));
+        Histogram.Timer requestTimer = requestLatency.startTimer();
 
         ParseResponse response;
         try {
@@ -68,6 +78,9 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
             response = ParseResponse.newBuilder()
                     .setParseError(error)
                     .setClauseType(ParseResponse.ClauseType.UNDEFINED).build();
+        } finally {
+            receivedBytes.observe(request.getSerializedSize());
+            requestTimer.observeDuration();
         }
 
         responseObserver.onNext(response);
@@ -78,7 +91,10 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
         if (node.getKind() == SqlKind.OTHER && node instanceof SqlCall) {
             // Get clause type from operator name
             String opName = ((SqlCall) node).getOperator().getName().replace(" ", "_");
+
+            // Add logging for this specific operator
             logger.info("Matched operator " + opName);
+            requests.labels(opName).inc();
 
             // Parse the clause type based on operator name
             switch (ParseResponse.ClauseType.valueOf(opName)) {
@@ -87,9 +103,9 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
                     throw new UnsupportedOperationException(
                             String.format("Operator %s not supported", opName));
             }
-
         } else {
             // Return native sql in the target dialect for the source node
+            requests.labels("NATIVE_SQL").inc();
             return ParseResponse.newBuilder()
                     .setClauseType(ParseResponse.ClauseType.NATIVE_SQL)
                     .setParsedSql(node.toSqlString(sourceDialect).toString())
@@ -103,8 +119,6 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
             SqlIdentifier target = (SqlIdentifier) t;
             return target.getSimple();
         }).collect(Collectors.toList());
-
-        // TODO: Push down code to return simple types to classes
 
         // Add required fields for predict
         PredictClause.Builder builder = PredictClause.newBuilder()

@@ -80,6 +80,11 @@ public class PqlClient {
             statement = args[0];
             dialect = ParseRequest.TargetDialect.valueOf(args[1]);
         }
+        Integer requestCount = 1;
+        if (args.length > 2) {
+            requestCount = Integer.parseInt(args[2]);
+        }
+
 
         // Create a communication channel to the server, known as a Channel. Channels are thread-safe
         // and reusable. It is common to create channels at the beginning of your application and reuse
@@ -91,7 +96,10 @@ public class PqlClient {
                 .build();
         try {
             PqlClient client = new PqlClient(channel);
-            client.parse(statement, dialect);
+            // Send 1000 requests
+            for (int i = 0; i < requestCount; i++) {
+                client.parse(statement, dialect);
+            }
         } finally {
             // ManagedChannels use resources like threads and TCP connections. To prevent leaking these
             // resources the channel should be shut down when it will no longer be used. If it may be used
