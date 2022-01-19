@@ -156,23 +156,23 @@ public class SqlPredict extends SqlCall {
   }
 
   /**
-   * Return a list of given items
+   * Return a list of given items.
    * @return List of {@link SqlGivenItem}
    */
   public final Stream<SqlGivenItem> getGivenItems() {
     return given.stream()
             .filter(g -> g instanceof SqlGivenItem)
-            .map(g -> (SqlGivenItem)g);
+            .map(g -> (SqlGivenItem) g);
   }
 
   /**
-   * Return a list of given select clauses
+   * Return a list of given select clauses.
    * @return List of {@link SqlSelect}
    */
   public final Stream<SqlSelect> getGivenSelect() {
     return given.stream()
             .filter(g -> g instanceof  SqlSelect)
-            .map(g -> (SqlSelect)g);
+            .map(g -> (SqlSelect) g);
   }
 
   @Override public List<SqlNode> getOperandList() {
@@ -212,7 +212,7 @@ public class SqlPredict extends SqlCall {
 
     if (withQualifier != WithQualifier.EMPTY) {
       writer.keyword("WITH");
-      writer.print(withQualifier.toString());
+      writer.keyword(withQualifier.toString());
     }
 
     if (into != null) {

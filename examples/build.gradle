@@ -34,9 +34,8 @@ dependencies {
     // examples/advanced need this for JsonFormat
     implementation "com.google.protobuf:protobuf-java-util:${protobufVersion}"
 
-    // Add local calcite implementation
+    // Add calcite implementation
     implementation 'org.apache.calcite:calcite-core:1.29.0'
-    // This is is required for SqlLiteral (TODO: Remove this)
     implementation 'org.apache.calcite.avatica:avatica-core:1.20.0'
 
     runtimeOnly "io.grpc:grpc-netty-shaded:${grpcVersion}"

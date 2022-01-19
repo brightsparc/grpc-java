@@ -9,7 +9,7 @@ import java.util.*;
 import java.util.logging.*;
 import java.util.stream.*;
 
-public class PqlParser  extends ParserGrpc.ParserImplBase {
+public class PqlParser extends ParserGrpc.ParserImplBase {
     // TODO: Use structured logging
     private static final Logger logger = Logger.getLogger(PqlServer.class.getName());
 
