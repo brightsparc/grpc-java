@@ -129,7 +129,7 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
 
     private ParseResponse parseCreateConnection(SqlCreateConnection node) {
         CreateConnectionClause.Builder builder = CreateConnectionClause.newBuilder()
-                .setName(node.getName().getSimple())
+                .setName(node.getNameAs(String.class))
                 .setConnectionType(CreateConnectionClause.ConnectionType.valueOf(node.getType().toString()));
 
         // If blob store, set access and secret key, else set username and password
@@ -163,7 +163,7 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
 
     private ParseResponse parseCreateDataset(SqlCreateDataset node, SqlDialect targetDialect) {
         CreateDatasetClause.Builder builder = CreateDatasetClause.newBuilder()
-                .setName(node.getName().getSimple());
+                .setName(node.getNameAs(String.class));
         if (node.getTargetRef() != null) {
             builder.setTarget(parseDatasetRef(node.getTargetRef()));
         }
@@ -183,14 +183,14 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
 
     private DatasetRef parseDatasetRef(SqlDatasetRef node) {
         DatasetRef.Builder builder = DatasetRef.newBuilder()
-                .setTable(node.getTable().getSimple())
-                .setUri(node.getUri().getValueAs(String.class));
+                .setTableRef(parseIdentifier(node.getTableRef()))
+                .setDatasetUri(node.getUri().getValueAs(String.class));
         if (node.getFormat() != null) {
             // Enumerate over the list of Identifier/StringLiteral pairs to
             final List list = (SqlNodeList) node.getFormat();
             Pair.forEach((List<SqlIdentifier>) Util.quotientList(list, 2, 0),
                     Util.quotientList((List<SqlLiteral>) list, 2, 1), (k, v) ->
-                            builder.putFormat(k.getSimple(), v.getValueAs(String.class))
+                            builder.putFormat(parseIdentifier(k), v.getValueAs(String.class))
             );
         }
         return builder.build();
@@ -198,9 +198,22 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
 
     private ParseResponse parseCreateModel(SqlCreateModel node, SqlDialect targetDialect) {
         CreateModelClause.Builder builder = CreateModelClause.newBuilder()
-                .setName(node.getName().getSimple());
+                .setName(node.getNameAs(String.class));
         if (node.getConfig() != null) {
             builder.setConfig(((SqlLiteral) node.getConfig()).getValueAs(String.class));
+        } else {
+            // Add features using the feature list builder
+            builder.addAllFeatureList(node.getFeatureList().stream().map(f ->
+                    parseFeature(f)).collect(Collectors.toList()));
+            // Add combiner
+            node.getCombiner().forEach(item ->
+                    builder.putCombiner(item.getNameAs(String.class), parseGivenItem(item)));
+            // Add combiner
+            node.getTrainer().forEach(item ->
+                    builder.putTrainer(item.getNameAs(String.class), parseGivenItem(item)));
+            // Add split by as string list
+            builder.addAllSplitByList(node.getSplitBy().stream().map(sb -> sb.toString()).collect(Collectors.toList()));
+            //builder.setSourceRef(node.getSourceRef().getTableRef().getSimple());
         }
         return ParseResponse.newBuilder()
                 .setClauseType(ParseResponse.ClauseType.CREATE_MODEL)
@@ -209,18 +222,28 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
                 .build();
     }
 
+    private Feature parseFeature(SqlFeature feature) {
+        Feature.Builder builder = Feature.newBuilder()
+                .setName(feature.getNameAs(String.class))
+                .setType(Feature.FeatureType.valueOf(feature.getGivenType().toString()));
+        feature.getEncoder().forEach(item ->
+                builder.putEncoder(item.getNameAs(String.class), parseGivenItem(item)));
+        feature.getEncoder().forEach(item ->
+                builder.putDecoder(item.getNameAs(String.class), parseGivenItem(item)));
+        return builder.build();
+    }
+
     private ParseResponse parsePredict(SqlPredict predict, SqlDialect targetDialect) {
         // Get target list
-        List<String> targetList = predict.getTargetList().stream().map(t -> {
-            SqlIdentifier target = (SqlIdentifier) t;
-            return target.getSimple();
-        }).collect(Collectors.toList());
+        List<String> targetList = predict.getTargetList().stream().map(t ->
+            parseIdentifier((SqlIdentifier) t)
+        ).collect(Collectors.toList());
 
         // Add required fields for predict
         PredictClause.Builder builder = PredictClause.newBuilder()
                 .setPredictType(PredictClause.PredictType.valueOf(predict.getPredictType().toString()))
                 .addAllTargetList(targetList)
-                .setModel(predict.getModel().getName().getSimple());
+                .setModel(parseIdentifier(predict.getModel().getName()));
 
         // Add optional fields
         if (predict.getWithQualifier() != null) {
@@ -257,7 +280,7 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
         switch (item.getGivenType()) {
             case IDENTIFIER:
                 SqlIdentifier identifier = (SqlIdentifier) item.getValue();
-                return builder.addIdentifierValue(identifier.getSimple()).build();
+                return builder.addIdentifierValue(parseIdentifier(identifier)).build();
             case NUMERIC:
                 SqlNumericLiteral numValue = (SqlNumericLiteral) item.getValue();
                 return builder.addNumericValue(numValue.getValueAs(Double.class)).build();
@@ -290,6 +313,14 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
             default:
                 throw new UnsupportedOperationException(String.format(
                         "Unexpected identifier type: %s", item.getGivenType()));
+        }
+    }
+
+    private String parseIdentifier(SqlIdentifier identifier) {
+        if (identifier.isSimple()) {
+            return identifier.getSimple();
+        } else {
+            return identifier.toString();
         }
     }
 

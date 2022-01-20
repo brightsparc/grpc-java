@@ -19,8 +19,10 @@ package com.predibase.pql.parser;
 import org.apache.calcite.sql.*;
 import org.apache.calcite.sql.parser.*;
 import org.apache.calcite.util.*;
+import org.checkerframework.dataflow.qual.*;
 
 import java.util.*;
+import java.util.stream.*;
 
 /**
  * Parse tree for {@code CREATE MODEL} statement.
@@ -30,8 +32,8 @@ public class SqlCreateModel extends SqlCreate {
   public final SqlNode config;
   public final SqlNodeList featureList;
   public final SqlNodeList targetList;
-  public final SqlNode trainer;
-  public final SqlNode combiner;
+  public final SqlNodeList trainer;
+  public final SqlNodeList combiner;
   public final SqlNodeList splitBy;
   public final SqlDatasetRef sourceRef;
   public final SqlNode query;
@@ -41,8 +43,8 @@ public class SqlCreateModel extends SqlCreate {
 
   /** Creates a SqlCreateModel with config string. */
   public SqlCreateModel(SqlParserPos pos, boolean replace, boolean ifNotExists,
-      SqlIdentifier name, SqlNode config,
-      SqlNodeList splitBy, SqlDatasetRef sourceRef, SqlNode query) {
+                        SqlIdentifier name, SqlNode config,
+                        SqlNodeList splitBy, SqlDatasetRef sourceRef, SqlNode query) {
     super(OPERATOR, pos, replace, ifNotExists);
     this.name = Objects.requireNonNull(name, "name");
     this.config = config;
@@ -58,9 +60,9 @@ public class SqlCreateModel extends SqlCreate {
 
   /** Creates a SqlCreateModel with sql parameters. */
   public SqlCreateModel(SqlParserPos pos, boolean replace, boolean ifNotExists,
-      SqlIdentifier name, SqlNodeList featureList, SqlNodeList targetList,
-      SqlNode combiner, SqlNode trainer,
-      SqlNodeList splitBy, SqlDatasetRef sourceRef, SqlNode query) {
+                        SqlIdentifier name, SqlNodeList featureList, SqlNodeList targetList,
+                        SqlNodeList combiner, SqlNodeList trainer,
+                        SqlNodeList splitBy, SqlDatasetRef sourceRef, SqlNode query) {
     super(OPERATOR, pos, replace, ifNotExists);
     this.name = Objects.requireNonNull(name, "name");
     this.config = null;
@@ -78,38 +80,74 @@ public class SqlCreateModel extends SqlCreate {
         targetList, featureList, combiner, trainer, splitBy, sourceRef, query);
   }
 
+  @Pure
   public final SqlIdentifier getName() {
     return name;
   }
 
+  /** Returns the given name as a type. */
+  public <T extends Object> T getNameAs(Class<T> clazz) {
+    if (clazz.isInstance(name)) {
+      return clazz.cast(name);
+    }
+    // If we are asking for a string, get the simple name, or use
+    if (clazz == String.class) {
+      if (name.isSimple()) {
+        return clazz.cast(name.getSimple());
+      }
+      return clazz.cast(name.toString());
+    }
+    throw new AssertionError("cannot cast " + name + " as " + clazz);
+  }
+
+  @Pure
   public final SqlNode getConfig() {
     return config;
   }
 
-  public final SqlNodeList getTargetList() {
-    return targetList;
+  @Pure
+  public final List<SqlIdentifier> getTargetList() {
+    if (targetList != null) {
+      return targetList.stream().map(t -> (SqlIdentifier) t).collect(Collectors.toList());
+    }
+    return new ArrayList<>();
   }
 
-  public final SqlNodeList getFeatureList() {
-    return featureList;
+  @Pure
+  public final List<SqlFeature> getFeatureList() {
+    if (featureList != null) {
+      return featureList.stream().map(f -> (SqlFeature) f).collect(Collectors.toList());
+    }
+    return new ArrayList<>();
   }
 
-  public final SqlNode getCombiner() {
-    return query;
+  @Pure
+  public final List<SqlGivenItem> getCombiner() {
+    if (combiner != null) {
+      return combiner.stream().map(e -> (SqlGivenItem) e).collect(Collectors.toList());
+    }
+    return new ArrayList<>();
   }
 
-  public final SqlNode getTrainer() {
-    return query;
+  @Pure
+  public final List<SqlGivenItem> getTrainer() {
+    if (trainer != null) {
+      return trainer.stream().map(e -> (SqlGivenItem) e).collect(Collectors.toList());
+    }
+    return new ArrayList<>();
   }
 
-  public final SqlNode getSplitBy() {
-    return query;
+  @Pure
+  public final SqlNodeList getSplitBy() {
+    return splitBy;
   }
 
+  @Pure
   public final SqlDatasetRef getSourceRef() {
     return sourceRef;
   }
 
+  @Pure
   public final SqlNode getQuery() {
     return query;
   }

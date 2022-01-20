@@ -16,23 +16,13 @@
  */
 package com.predibase.pql.parser;
 
-import org.apache.calcite.sql.SqlCreate;
-import org.apache.calcite.sql.SqlIdentifier;
-import org.apache.calcite.sql.SqlKind;
-import org.apache.calcite.sql.SqlLiteral;
-import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.SqlOperator;
-import org.apache.calcite.sql.SqlSpecialOperator;
-import org.apache.calcite.sql.SqlWriter;
-import org.apache.calcite.sql.Symbolizable;
-import org.apache.calcite.sql.parser.SqlParserPos;
-import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.calcite.util.ImmutableNullableList;
+import org.apache.calcite.sql.*;
+import org.apache.calcite.sql.parser.*;
+import org.apache.calcite.sql.type.*;
+import org.apache.calcite.util.*;
+import org.checkerframework.dataflow.qual.*;
 
-import org.checkerframework.dataflow.qual.Pure;
-
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 /**
  * A <code>SqlCreateConnection</code> is a node of a parse tree {@code CREATE CONNECTION}
@@ -101,7 +91,7 @@ public class SqlCreateConnection extends SqlCreate {
   //~ Static Fields -----------------------------------------------------------
 
   public static final SqlOperator OPERATOR =
-          new SqlSpecialOperator("CREATE CONNECTION", SqlKind.OTHER_DDL);
+      new SqlSpecialOperator("CREATE CONNECTION", SqlKind.OTHER_DDL);
 
   /** Creates a SqlCreateSchedule. */
   public SqlCreateConnection(SqlParserPos pos, boolean replace, boolean ifNotExists,
@@ -133,12 +123,27 @@ public class SqlCreateConnection extends SqlCreate {
 
   @Override public List<SqlNode> getOperandList() {
     return ImmutableNullableList.of(name, connectionType.symbol(SqlParserPos.ZERO),
-            accessKey, secretKey, roleArn, username, password, connectionUri, enabled);
+        accessKey, secretKey, roleArn, username, password, connectionUri, enabled);
   }
 
   @Pure
   public final SqlIdentifier getName() {
     return name;
+  }
+
+  /** Returns the given name as a type. */
+  public <T extends Object> T getNameAs(Class<T> clazz) {
+    if (clazz.isInstance(name)) {
+      return clazz.cast(name);
+    }
+    // If we are asking for a string, get the simple name, or use
+    if (clazz == String.class) {
+      if (name.isSimple()) {
+        return clazz.cast(name.getSimple());
+      }
+      return clazz.cast(name.toString());
+    }
+    throw new AssertionError("cannot cast " + name + " as " + clazz);
   }
 
   @Pure

@@ -4139,8 +4139,8 @@ public class ExtensionSqlParserImpl extends SqlAbstractParserImpl implements Ext
     SqlNode config = null;
     SqlNodeList targetList = null;
     SqlNodeList featureList = null;
-    SqlNode combiner = null;
-    SqlNode trainer = null;
+    SqlNodeList combiner = null;
+    SqlNodeList trainer = null;
     SqlNodeList splitBy = null;
     final SqlDatasetRef sourceRef;
     final SqlNode query;

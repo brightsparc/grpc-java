@@ -20,9 +20,11 @@ import com.google.common.collect.*;
 import org.apache.calcite.sql.*;
 import org.apache.calcite.sql.parser.*;
 import org.apache.calcite.util.*;
+import org.checkerframework.checker.nullness.qual.*;
 
 import java.util.*;
 import java.util.function.*;
+import java.util.stream.*;
 
 import static java.util.Objects.*;
 
@@ -47,9 +49,9 @@ public class SqlFeature extends SqlCall {
   private static final SqlOperator OPERATOR =
       new SqlSpecialOperator("FEATURE", SqlKind.HINT) {
         @Override public SqlCall createCall(
-            SqlLiteral functionQualifier,
+            @Nullable SqlLiteral functionQualifier,
             SqlParserPos pos,
-            SqlNode... operands) {
+            @Nullable SqlNode... operands) {
           return new SqlFeature(pos,
               (SqlIdentifier) requireNonNull(operands[0], "name"),
               ((SqlLiteral) requireNonNull(operands[1], "featureType"))
@@ -157,8 +159,23 @@ public class SqlFeature extends SqlCall {
   }
 
   /** Returns the name. */
-  public String getName() {
-    return name.getSimple();
+  public SqlIdentifier getName() {
+    return name;
+  }
+
+  /** Returns the given name as a type. */
+  public <T extends Object> T getNameAs(Class<T> clazz) {
+    if (clazz.isInstance(name)) {
+      return clazz.cast(name);
+    }
+    // If we are asking for a string, get the simple name, or use
+    if (clazz == String.class) {
+      if (name.isSimple()) {
+        return clazz.cast(name.getSimple());
+      }
+      return clazz.cast(name.toString());
+    }
+    throw new AssertionError("cannot cast " + name + " as " + clazz);
   }
 
   /** Returns the feature type. */
@@ -167,13 +184,13 @@ public class SqlFeature extends SqlCall {
   }
 
   /** Returns the encoder. */
-  public SqlNodeList getEncoder() {
-    return encoder;
+  public List<SqlGivenItem> getEncoder() {
+    return encoder.stream().map(e -> (SqlGivenItem) e).collect(Collectors.toList());
   }
 
   /** Returns the decoder. */
-  public SqlNodeList getDecoder() {
-    return decoder;
+  public List<SqlGivenItem> getDecoder() {
+    return decoder.stream().map(e -> (SqlGivenItem) e).collect(Collectors.toList());
   }
 
   @Override public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {

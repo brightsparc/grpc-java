@@ -19,6 +19,7 @@ package com.predibase.pql.parser;
 import org.apache.calcite.sql.*;
 import org.apache.calcite.sql.parser.*;
 import org.apache.calcite.util.*;
+import org.checkerframework.dataflow.qual.*;
 
 import java.util.*;
 
@@ -60,7 +61,7 @@ public class SqlCreateDataset extends SqlCreate {
 
   /** Creates a SqlCreateSchedule. */
   public SqlCreateDataset(SqlParserPos pos, boolean replace, boolean ifNotExists,
-      SqlIdentifier name, SqlDatasetRef targetRef, SqlDatasetRef sourceRef, SqlNode query) {
+                          SqlIdentifier name, SqlDatasetRef targetRef, SqlDatasetRef sourceRef, SqlNode query) {
     super(OPERATOR, pos, replace, ifNotExists);
     this.name = Objects.requireNonNull(name, "name");
     this.targetRef = targetRef;
@@ -72,18 +73,37 @@ public class SqlCreateDataset extends SqlCreate {
     return ImmutableNullableList.of(name, targetRef, sourceRef, query);
   }
 
+  @Pure
   public final SqlIdentifier getName() {
     return name;
   }
 
+  /** Returns the given name as a type. */
+  public <T extends Object> T getNameAs(Class<T> clazz) {
+    if (clazz.isInstance(name)) {
+      return clazz.cast(name);
+    }
+    // If we are asking for a string, get the simple name, or use
+    if (clazz == String.class) {
+      if (name.isSimple()) {
+        return clazz.cast(name.getSimple());
+      }
+      return clazz.cast(name.toString());
+    }
+    throw new AssertionError("cannot cast " + name + " as " + clazz);
+  }
+
+  @Pure
   public final SqlDatasetRef getTargetRef() {
     return targetRef;
   }
 
+  @Pure
   public final SqlDatasetRef getSourceRef() {
     return sourceRef;
   }
 
+  @Pure
   public final SqlNode getQuery() {
     return query;
   }

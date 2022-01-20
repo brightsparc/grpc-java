@@ -280,13 +280,13 @@ public class PqlServerTest {
     CreateDatasetClause ds = response.getClause().getCreateDataset();
     assertEquals("S3_DATASET", ds.getName());
     // Get target properties
-    assertEquals("S3_TARGET", ds.getTarget().getTable());
-    assertEquals("s3://bucket/target", ds.getTarget().getUri());
+    assertEquals("S3_TARGET", ds.getTarget().getTableRef());
+    assertEquals("s3://bucket/target", ds.getTarget().getDatasetUri());
     assertEquals(1, ds.getTarget().getFormatCount());
     assertEquals("parquet", ds.getTarget().getFormatOrDefault("TYPE", null));
     // Get source properties
-    assertEquals("S3_SOURCE", ds.getSource().getTable());
-    assertEquals("s3://bucket/source", ds.getSource().getUri());
+    assertEquals("S3_SOURCE", ds.getSource().getTableRef());
+    assertEquals("s3://bucket/source", ds.getSource().getDatasetUri());
     assertEquals(1, ds.getSource().getFormatCount());
     assertEquals("csv", ds.getSource().getFormatOrDefault("TYPE", null));
   }

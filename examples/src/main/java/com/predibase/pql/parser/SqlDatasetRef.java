@@ -19,6 +19,7 @@ package com.predibase.pql.parser;
 import com.google.common.collect.*;
 import org.apache.calcite.sql.*;
 import org.apache.calcite.sql.parser.*;
+import org.checkerframework.checker.nullness.qual.*;
 
 import java.util.*;
 
@@ -32,9 +33,9 @@ public class SqlDatasetRef extends SqlCall {
   private static final SqlOperator OPERATOR =
       new SqlSpecialOperator("DATASET REF", SqlKind.OTHER) {
         @Override public SqlCall createCall(
-            SqlLiteral functionQualifier,
+            @Nullable SqlLiteral functionQualifier,
             SqlParserPos pos,
-            SqlNode... operands) {
+            @Nullable SqlNode... operands) {
           return new SqlDatasetRef(pos, (SqlIdentifier) operands[0], operands[1], operands[2]);
         }
       };
@@ -47,7 +48,7 @@ public class SqlDatasetRef extends SqlCall {
 
   //~ Constructors -----------------------------------------------------------
 
-  public SqlDatasetRef(SqlParserPos pos, SqlIdentifier tableRef, SqlNode uri,  SqlNode format) {
+  public SqlDatasetRef(SqlParserPos pos, SqlIdentifier tableRef, SqlNode uri, SqlNode format) {
     super(pos);
     this.tableRef = Objects.requireNonNull(tableRef, "tableRef");
     this.uri = uri;
@@ -65,7 +66,7 @@ public class SqlDatasetRef extends SqlCall {
   }
 
   /** Returns the dataset name as a sql identifier. */
-  public SqlIdentifier getTable() {
+  public SqlIdentifier getTableRef() {
     return tableRef;
   }
 

@@ -19,6 +19,7 @@ package com.predibase.pql.parser;
 import com.google.common.collect.*;
 import org.apache.calcite.sql.*;
 import org.apache.calcite.sql.parser.*;
+import org.checkerframework.checker.nullness.qual.*;
 
 import java.util.*;
 
@@ -45,9 +46,9 @@ public class SqlGivenItem extends SqlCall {
   private static final SqlOperator OPERATOR =
       new SqlSpecialOperator("GIVEN", SqlKind.HINT) {
         @Override public SqlCall createCall(
-            SqlLiteral functionQualifier,
+            @Nullable SqlLiteral functionQualifier,
             SqlParserPos pos,
-            SqlNode... operands) {
+            @Nullable SqlNode... operands) {
           return new SqlGivenItem(pos,
               (SqlIdentifier) requireNonNull(operands[0], "name"),
               requireNonNull(operands[1], "value"),
@@ -115,14 +116,52 @@ public class SqlGivenItem extends SqlCall {
     return ImmutableList.of(name, value, givenType.symbol(SqlParserPos.ZERO));
   }
 
-  /** Returns the sql given name. */
+  /** Returns the given name. */
   public SqlIdentifier getName() {
     return name;
+  }
+
+  /** Returns the given name as a type. */
+  public <T extends Object> T getNameAs(Class<T> clazz) {
+    if (clazz.isInstance(value)) {
+      return clazz.cast(value);
+    }
+    // If we are asking for a string, get the simple name, or use
+    if (clazz == String.class) {
+      if (name.isSimple()) {
+        return clazz.cast(name.getSimple());
+      }
+      return clazz.cast(name.toString());
+    }
+    throw new AssertionError("cannot cast " + name + " as " + clazz);
   }
 
   /** Returns the given value. */
   public SqlNode getValue() {
     return value;
+  }
+
+  /** Returns the given value as a type. */
+  public <T extends Object> T getValueAs(Class<T> clazz) {
+    if (clazz.isInstance(value)) {
+      return clazz.cast(value);
+    }
+    switch (givenType) {
+    case IDENTIFIER:
+      if (clazz == String.class) {
+        SqlIdentifier id = (SqlIdentifier) value;
+        if (id.isSimple()) {
+          return clazz.cast(id.getSimple());
+        }
+        return clazz.cast(id.toString());
+      }
+      break;
+    case STRING:
+      return ((SqlLiteral) value).getValueAs(clazz);
+    case NUMERIC:
+      return ((SqlNumericLiteral) value).getValueAs(clazz);
+    }
+    throw new AssertionError("cannot cast " + value + " as " + clazz);
   }
 
   /** Returns the given type. */
