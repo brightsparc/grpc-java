@@ -229,13 +229,13 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
                     parseIdentifier(t)).collect(Collectors.toList()));
             // Add preprocessing
             node.getPreprocessing().forEach(item ->
-                    builder.putPreprocessing(item.getNameAs(String.class), parseGivenItem(item)));
+                    builder.putPreprocessing(item.getNestedNameAs(String.class), parseGivenItem(item)));
             // Add combiner
             node.getCombiner().forEach(item ->
-                    builder.putCombiner(item.getNameAs(String.class), parseGivenItem(item)));
+                    builder.putCombiner(item.getNestedNameAs(String.class), parseGivenItem(item)));
             // Add combiner
             node.getTrainer().forEach(item ->
-                    builder.putTrainer(item.getNameAs(String.class), parseGivenItem(item)));
+                    builder.putTrainer(item.getNestedNameAs(String.class), parseGivenItem(item)));
         }
         if (node.getSourceRef() != null) {
             builder.setSource(parseDatasetRef(node.getSourceRef()));
@@ -255,9 +255,9 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
                 .setName(feature.getNameAs(String.class))
                 .setType(Feature.FeatureType.valueOf(feature.getGivenType().toString()));
         feature.getEncoder().forEach(item ->
-                builder.putEncoder(item.getNameAs(String.class), parseGivenItem(item)));
+                builder.putEncoder(item.getNestedNameAs(String.class), parseGivenItem(item)));
         feature.getEncoder().forEach(item ->
-                builder.putDecoder(item.getNameAs(String.class), parseGivenItem(item)));
+                builder.putDecoder(item.getNestedNameAs(String.class), parseGivenItem(item)));
         return builder.build();
     }
 
@@ -299,7 +299,7 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
     private GivenItem parseGivenItem(SqlGivenItem item) throws UnsupportedOperationException {
         // Get the node name and type
         GivenItem.Builder builder = GivenItem.newBuilder()
-                .setName(item.getNameAs(String.class))
+                .setName(item.getNestedNameAs(String.class))
                 .setType(GivenItem.GivenType.valueOf(item.getGivenType().toString()));
 
         // Get the value as target class

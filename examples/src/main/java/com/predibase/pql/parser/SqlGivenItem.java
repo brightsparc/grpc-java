@@ -51,9 +51,10 @@ public class SqlGivenItem extends SqlCall {
             SqlParserPos pos,
             @Nullable SqlNode... operands) {
           return new SqlGivenItem(pos,
-              (SqlIdentifier) requireNonNull(operands[0], "name"),
-              requireNonNull(operands[1], "value"),
-              ((SqlLiteral) requireNonNull(operands[2], "givenType"))
+              (SqlIdentifier) operands[0],
+              (SqlIdentifier) requireNonNull(operands[1], "name"),
+              requireNonNull(operands[2], "value"),
+              ((SqlLiteral) requireNonNull(operands[3], "givenType"))
                   .getValueAs(GivenType.class));
         }
       };
@@ -93,18 +94,30 @@ public class SqlGivenItem extends SqlCall {
 
   //~ Instance fields --------------------------------------------------------
 
+  private final SqlIdentifier parent;
   private final SqlIdentifier name;
   private final SqlNode value;
   private final GivenType givenType;
 
   //~ Constructors -----------------------------------------------------------
 
+  public static SqlIdentifier createIdentifier(SqlIdentifier parent, SqlIdentifier child,
+      SqlParserPos pos) {
+    if (parent == null) {
+      return child;
+    }
+    return new SqlIdentifier(
+        ImmutableList.<String>builder().addAll(parent.names).addAll(child.names).build(), pos);
+  }
+
   public SqlGivenItem(
       SqlParserPos pos,
+      SqlIdentifier parent,
       SqlIdentifier name,
       SqlNode value,
       GivenType givenType) {
     super(pos);
+    this.parent = parent;
     this.name = Objects.requireNonNull(name, "name");
     this.value = Objects.requireNonNull(value, "value");
     this.givenType = Objects.requireNonNull(givenType, "givenType");
@@ -120,24 +133,30 @@ public class SqlGivenItem extends SqlCall {
     return ImmutableList.of(name, value, givenType.symbol(SqlParserPos.ZERO));
   }
 
-  /** Returns the given name. */
+  /** Return the parent identifier. */
+  public SqlIdentifier getParent() {
+    return parent;
+  }
+
+  /** Returns the given name that is nested. */
   public SqlIdentifier getName() {
     return name;
   }
 
   /** Returns the given name as a type. */
-  public <T extends Object> T getNameAs(Class<T> clazz) {
-    if (clazz.isInstance(name)) {
-      return clazz.cast(name);
+  public <T extends Object> T getNestedNameAs(Class<T> clazz) {
+    SqlIdentifier nested = createIdentifier(parent, name, name.getParserPosition());
+    if (clazz.isInstance(nested)) {
+      return clazz.cast(nested);
     }
     // If we are asking for a string, get the simple name, or use
     if (clazz == String.class) {
-      if (name.isSimple()) {
-        return clazz.cast(name.getSimple());
+      if (nested.isSimple()) {
+        return clazz.cast(nested.getSimple());
       }
-      return clazz.cast(name.toString());
+      return clazz.cast(nested.toString());
     }
-    throw new AssertionError("cannot cast " + name + " as " + clazz);
+    throw new AssertionError("cannot cast " + nested + " as " + clazz);
   }
 
   /** Returns the given value. */
@@ -182,6 +201,7 @@ public class SqlGivenItem extends SqlCall {
   }
 
   @Override public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
+    // NOTE: Don't write the parent here (as this will be named argument in unparse)
     name.unparse(writer, leftPrec, rightPrec);
     writer.keyword("=");
     value.unparse(writer, leftPrec, rightPrec);

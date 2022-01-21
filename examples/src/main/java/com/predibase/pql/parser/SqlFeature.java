@@ -66,6 +66,10 @@ public class SqlFeature extends SqlCall {
    * The feature type.
    */
   public enum FeatureType implements Symbolizable {
+    /**
+     * Feature type is undefined.
+     */
+    UNDEFINED,
      /**
      * Binary features are directly transformed into a binary valued vector of length n.
      */
@@ -132,6 +136,15 @@ public class SqlFeature extends SqlCall {
   private final SqlNodeList decoder;
 
   //~ Constructors -----------------------------------------------------------
+
+  public static SqlIdentifier createIdentifier(SqlIdentifier parent, FeatureType feature,
+      SqlParserPos pos) {
+    if (parent == null) {
+      return new SqlIdentifier(feature.name(), pos);
+    }
+    return new SqlIdentifier(
+        ImmutableList.<String>builder().addAll(parent.names).add(feature.name()).build(), pos);
+  }
 
   public SqlFeature(
       SqlParserPos pos,

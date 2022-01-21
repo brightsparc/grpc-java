@@ -122,26 +122,36 @@ public class SqlCreateModel extends SqlCreate {
 
   @Pure
   public final List<SqlGivenItem> getPreprocessing() {
-    if (preprocessing != null) {
-      return preprocessing.stream().map(e -> (SqlGivenItem) e).collect(Collectors.toList());
-    }
-    return new ArrayList<>();
+    return getGivenItems(preprocessing);
   }
 
   @Pure
   public final List<SqlGivenItem> getCombiner() {
-    if (combiner != null) {
-      return combiner.stream().map(e -> (SqlGivenItem) e).collect(Collectors.toList());
-    }
-    return new ArrayList<>();
+    return getGivenItems(combiner);
   }
 
   @Pure
   public final List<SqlGivenItem> getTrainer() {
-    if (trainer != null) {
-      return trainer.stream().map(e -> (SqlGivenItem) e).collect(Collectors.toList());
+    return getGivenItems(trainer);
+  }
+
+  /** Adds items and nested items. */
+  private List<SqlGivenItem> getGivenItems(SqlNodeList items) {
+    ArrayList<SqlGivenItem> list = new ArrayList<>();
+    if (items != null) {
+      items.forEach(i -> {
+        if (i instanceof  SqlGivenItem) {
+          list.add((SqlGivenItem) i);
+        } else if (i instanceof SqlBasicCall) {
+          // Named argument
+          SqlNode left = ((SqlBasicCall) i).getOperandList().get(0);
+          if (left instanceof  SqlNodeList) {
+            list.addAll(getGivenItems((SqlNodeList) left));
+          }
+        }
+      });
     }
-    return new ArrayList<>();
+    return list;
   }
 
   @Pure
