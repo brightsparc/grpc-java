@@ -32,9 +32,9 @@ public class SqlCreateModel extends SqlCreate {
   public final SqlNode config;
   public final SqlNodeList featureList;
   public final SqlNodeList targetList;
+  public final SqlNodeList preprocessing;
   public final SqlNodeList trainer;
   public final SqlNodeList combiner;
-  public final SqlNodeList splitBy;
   public final SqlDatasetRef sourceRef;
   public final SqlNode query;
 
@@ -43,41 +43,40 @@ public class SqlCreateModel extends SqlCreate {
 
   /** Creates a SqlCreateModel with config string. */
   public SqlCreateModel(SqlParserPos pos, boolean replace, boolean ifNotExists,
-                        SqlIdentifier name, SqlNode config,
-                        SqlNodeList splitBy, SqlDatasetRef sourceRef, SqlNode query) {
+      SqlIdentifier name, SqlNode config, SqlDatasetRef sourceRef, SqlNode query) {
     super(OPERATOR, pos, replace, ifNotExists);
     this.name = Objects.requireNonNull(name, "name");
     this.config = config;
     // TODO: Based on config, dynamically set the following properties
     this.featureList = null;
     this.targetList = null;
+    this.preprocessing = null;
     this.combiner = null;
     this.trainer = null;
-    this.splitBy = splitBy;
     this.sourceRef = sourceRef;
     this.query = query;
   }
 
   /** Creates a SqlCreateModel with sql parameters. */
   public SqlCreateModel(SqlParserPos pos, boolean replace, boolean ifNotExists,
-                        SqlIdentifier name, SqlNodeList featureList, SqlNodeList targetList,
-                        SqlNodeList combiner, SqlNodeList trainer,
-                        SqlNodeList splitBy, SqlDatasetRef sourceRef, SqlNode query) {
+      SqlIdentifier name, SqlNodeList featureList, SqlNodeList targetList,
+      SqlNodeList preprocessing, SqlNodeList combiner, SqlNodeList trainer,
+      SqlDatasetRef sourceRef, SqlNode query) {
     super(OPERATOR, pos, replace, ifNotExists);
     this.name = Objects.requireNonNull(name, "name");
     this.config = null;
     this.featureList = Objects.requireNonNull(featureList, "featureList");
     this.targetList = Objects.requireNonNull(targetList, "targetList");
+    this.preprocessing = preprocessing;
     this.combiner = combiner;
     this.trainer = trainer;
-    this.splitBy = splitBy;
     this.sourceRef = sourceRef;
     this.query = query;
   }
 
   @Override public List<SqlNode> getOperandList() {
     return ImmutableNullableList.of(name, config,
-        targetList, featureList, combiner, trainer, splitBy, sourceRef, query);
+        targetList, featureList, preprocessing, combiner, trainer, sourceRef, query);
   }
 
   @Pure
@@ -122,6 +121,14 @@ public class SqlCreateModel extends SqlCreate {
   }
 
   @Pure
+  public final List<SqlGivenItem> getPreprocessing() {
+    if (preprocessing != null) {
+      return preprocessing.stream().map(e -> (SqlGivenItem) e).collect(Collectors.toList());
+    }
+    return new ArrayList<>();
+  }
+
+  @Pure
   public final List<SqlGivenItem> getCombiner() {
     if (combiner != null) {
       return combiner.stream().map(e -> (SqlGivenItem) e).collect(Collectors.toList());
@@ -135,11 +142,6 @@ public class SqlCreateModel extends SqlCreate {
       return trainer.stream().map(e -> (SqlGivenItem) e).collect(Collectors.toList());
     }
     return new ArrayList<>();
-  }
-
-  @Pure
-  public final SqlNodeList getSplitBy() {
-    return splitBy;
   }
 
   @Pure
@@ -182,33 +184,34 @@ public class SqlCreateModel extends SqlCreate {
       if (targetList.size() == 1) {
         targetList.unparse(writer, leftPrec, rightPrec);
       } else {
-        SqlWriter.Frame targetFrame = writer.startList("(", ")");
+        SqlWriter.Frame frame = writer.startList("(", ")");
         targetList.unparse(writer, leftPrec, rightPrec);
-        writer.endList(targetFrame);
+        writer.endList(frame);
       }
-      if (combiner != null || trainer != null) {
+      if (preprocessing != null || combiner != null || trainer != null) {
         writer.keyword("WITH");
+        if (preprocessing != null) {
+          writer.newlineAndIndent();
+          writer.keyword("PREPROCESSING");
+          SqlWriter.Frame frame = writer.startList("(", ")");
+          preprocessing.unparse(writer, leftPrec, rightPrec);
+          writer.endList(frame);
+        }
+        if (combiner != null) {
+          writer.newlineAndIndent();
+          writer.keyword("COMBINER");
+          SqlWriter.Frame frame = writer.startList("(", ")");
+          combiner.unparse(writer, leftPrec, rightPrec);
+          writer.endList(frame);
+        }
+        if (trainer != null) {
+          writer.newlineAndIndent();
+          writer.keyword("TRAINER");
+          SqlWriter.Frame frame = writer.startList("(", ")");
+          trainer.unparse(writer, leftPrec, rightPrec);
+          writer.endList(frame);
+        }
       }
-      if (combiner != null) {
-        writer.newlineAndIndent();
-        writer.keyword("COMBINER");
-        SqlWriter.Frame combinerFrame = writer.startList("(", ")");
-        combiner.unparse(writer, leftPrec, rightPrec);
-        writer.endList(combinerFrame);
-      }
-      if (trainer != null) {
-        writer.newlineAndIndent();
-        writer.keyword("TRAINER");
-        SqlWriter.Frame trainerFrame = writer.startList("(", ")");
-        trainer.unparse(writer, leftPrec, rightPrec);
-        writer.endList(trainerFrame);
-      }
-    }
-    if (splitBy != null) {
-      writer.newlineAndIndent();
-      writer.keyword("SPLIT");
-      writer.keyword("BY");
-      splitBy.unparse(writer, leftPrec, rightPrec);
     }
     // From source table, or query
     if (sourceRef != null) {

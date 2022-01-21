@@ -1,15 +1,13 @@
 package com.predibase.pql.api;
 
-import com.google.protobuf.*;
 import com.predibase.pql.parser.*;
 import io.grpc.stub.*;
 import io.prometheus.client.*;
 import org.apache.calcite.sql.*;
 import org.apache.calcite.sql.parser.*;
-import org.apache.calcite.util.*;
+import org.apache.calcite.sql.type.*;
 
 import java.util.*;
-import java.util.function.*;
 import java.util.logging.*;
 import java.util.stream.*;
 
@@ -199,8 +197,7 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
             builder.setSource(parseDatasetRef(node.getSourceRef()));
         }
         if (node.getQuery() != null) {
-            String targetSql = node.getQuery().toSqlString(targetDialect).toString();
-            builder.setQuery(targetSql);
+            builder.setQuery(node.getQuery().toSqlString(targetDialect).toString());
         }
         return ParseResponse.newBuilder()
                 .setClauseType(ParseResponse.ClauseType.CREATE_DATASET)
@@ -228,18 +225,23 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
             // Add features using the feature list builder
             builder.addAllFeatureList(node.getFeatureList().stream().map(f ->
                     parseFeature(f)).collect(Collectors.toList()));
+            builder.addAllTargetList(node.getTargetList().stream().map(t ->
+                    parseIdentifier(t)).collect(Collectors.toList()));
+            // Add preprocessing
+            node.getPreprocessing().forEach(item ->
+                    builder.putPreprocessing(item.getNameAs(String.class), parseGivenItem(item)));
             // Add combiner
             node.getCombiner().forEach(item ->
                     builder.putCombiner(item.getNameAs(String.class), parseGivenItem(item)));
             // Add combiner
             node.getTrainer().forEach(item ->
                     builder.putTrainer(item.getNameAs(String.class), parseGivenItem(item)));
-            // Add split by as string list
-            builder.addAllSplitByList(node.getSplitBy().stream().map(sb -> sb.toString()).collect(Collectors.toList()));
-
-
-            //builder.setSourceRef(node.getSourceRef().getTableRef().getSimple());
-
+        }
+        if (node.getSourceRef() != null) {
+            builder.setSource(parseDatasetRef(node.getSourceRef()));
+        }
+        if (node.getQuery() != null) {
+            builder.setQuery(node.getQuery().toSqlString(targetDialect).toString());
         }
         return ParseResponse.newBuilder()
                 .setClauseType(ParseResponse.ClauseType.CREATE_MODEL)
@@ -260,15 +262,11 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
     }
 
     private ParseResponse parsePredict(SqlPredict predict, SqlDialect targetDialect) {
-        // Get target list
-        List<String> targetList = predict.getTargetList().stream().map(t ->
-            parseIdentifier((SqlIdentifier) t)
-        ).collect(Collectors.toList());
-
         // Add required fields for predict
         PredictClause.Builder builder = PredictClause.newBuilder()
                 .setPredictType(PredictClause.PredictType.valueOf(predict.getPredictType().toString()))
-                .addAllTargetList(targetList)
+                .addAllTargetList(predict.getTargetList().stream().map(t ->
+                        parseIdentifier(t)).collect(Collectors.toList()))
                 .setModel(parseIdentifier(predict.getModel().getName()));
 
         // Add optional fields
@@ -299,20 +297,21 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
     }
 
     private GivenItem parseGivenItem(SqlGivenItem item) throws UnsupportedOperationException {
-        // For each given type parse the node value to and set on builder
+        // Get the node name and type
         GivenItem.Builder builder = GivenItem.newBuilder()
+                .setName(item.getNameAs(String.class))
                 .setType(GivenItem.GivenType.valueOf(item.getGivenType().toString()));
 
+        // Get the value as target class
         switch (item.getGivenType()) {
             case IDENTIFIER:
-                SqlIdentifier identifier = (SqlIdentifier) item.getValue();
-                return builder.addIdentifierValue(parseIdentifier(identifier)).build();
+                return builder.addIdentifierValue(item.getValueAs(String.class)).build();
+            case BINARY:
+                return builder.addBoolValue(item.getValueAs(Boolean.class)).build();
             case NUMERIC:
-                SqlNumericLiteral numValue = (SqlNumericLiteral) item.getValue();
-                return builder.addNumericValue(numValue.getValueAs(Double.class)).build();
+                return builder.addNumericValue(item.getValueAs(Double.class)).build();
             case STRING:
-                SqlLiteral strValue = (SqlLiteral) item.getValue();
-                return builder.addStringValue(strValue.getValueAs(String.class)).build();
+                return builder.addStringValue(item.getValueAs(String.class)).build();
             case ARRAY:
                 SqlBasicCall arr = (SqlBasicCall) item.getValue();
                 arr.getOperandList().forEach(a -> {
@@ -321,7 +320,11 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
                         builder.addNumericValue(arrItem.getValueAs(Double.class));
                     } else if (a instanceof SqlLiteral) {
                         SqlLiteral arrItem = (SqlLiteral) item.getValue();
-                        builder.addStringValue(arrItem.getValueAs(String.class));
+                        if (arrItem.getTypeName() == SqlTypeName.BOOLEAN) {
+                            builder.addBoolValue(arrItem.getValueAs(Boolean.class));
+                        } else {
+                            builder.addStringValue(arrItem.getValueAs(String.class));
+                        }
                     } else {
                         throw new UnsupportedOperationException(String.format(
                                 "Unexpected array type: %s", a.getKind()));

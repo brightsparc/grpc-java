@@ -19,6 +19,7 @@ package com.predibase.pql.parser;
 import com.google.common.collect.*;
 import org.apache.calcite.sql.*;
 import org.apache.calcite.sql.parser.*;
+import org.checkerframework.checker.nullness.qual.*;
 
 import java.util.*;
 
@@ -34,9 +35,9 @@ public class SqlGivenRange extends SqlCall {
   private static final SqlOperator OPERATOR =
       new SqlSpecialOperator("SEQUENCE", SqlKind.OTHER) {
         @Override public SqlCall createCall(
-            SqlLiteral functionQualifier,
+            @Nullable SqlLiteral functionQualifier,
             SqlParserPos pos,
-            SqlNode... operands) {
+            @Nullable SqlNode... operands) {
           return new SqlGivenRange(pos,
               (SqlNumericLiteral) requireNonNull(operands[0], "min"),
               (SqlNumericLiteral) requireNonNull(operands[1], "max"),
@@ -116,7 +117,7 @@ public class SqlGivenRange extends SqlCall {
   }
 
   /** Returns the given type. */
-  public RangeType getType() {
+  public RangeType getRangeType() {
     return rangeType;
   }
 

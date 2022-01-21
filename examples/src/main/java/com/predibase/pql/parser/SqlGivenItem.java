@@ -19,6 +19,7 @@ package com.predibase.pql.parser;
 import com.google.common.collect.*;
 import org.apache.calcite.sql.*;
 import org.apache.calcite.sql.parser.*;
+import org.apache.calcite.sql.type.*;
 import org.checkerframework.checker.nullness.qual.*;
 
 import java.util.*;
@@ -64,11 +65,14 @@ public class SqlGivenItem extends SqlCall {
    * The given type.
    */
   public enum GivenType implements Symbolizable {
-    /** Enumeration that  implements Symbolizable {
-     /**
+    /**
      * The given value is a simple identifier.
      */
     IDENTIFIER,
+    /**
+     * The given value is a binary value.
+     */
+    BINARY,
     /**
      * The given value is a numeric literal.
      */
@@ -123,8 +127,8 @@ public class SqlGivenItem extends SqlCall {
 
   /** Returns the given name as a type. */
   public <T extends Object> T getNameAs(Class<T> clazz) {
-    if (clazz.isInstance(value)) {
-      return clazz.cast(value);
+    if (clazz.isInstance(name)) {
+      return clazz.cast(name);
     }
     // If we are asking for a string, get the simple name, or use
     if (clazz == String.class) {
@@ -147,6 +151,14 @@ public class SqlGivenItem extends SqlCall {
       return clazz.cast(value);
     }
     switch (givenType) {
+    case BINARY:
+      if (clazz == Boolean.class) {
+        SqlLiteral lit = (SqlLiteral) value;
+        if (lit.getTypeName() == SqlTypeName.BOOLEAN) {
+          return lit.getValueAs(clazz);
+        }
+      }
+      break;
     case IDENTIFIER:
       if (clazz == String.class) {
         SqlIdentifier id = (SqlIdentifier) value;

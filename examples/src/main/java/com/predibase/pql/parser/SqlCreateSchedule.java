@@ -19,6 +19,7 @@ package com.predibase.pql.parser;
 import org.apache.calcite.sql.*;
 import org.apache.calcite.sql.parser.*;
 import org.apache.calcite.util.*;
+import org.checkerframework.dataflow.qual.*;
 
 import java.util.*;
 
@@ -74,22 +75,27 @@ public class SqlCreateSchedule extends SqlCreate {
         scheduleType.symbol(SqlParserPos.ZERO), start, interval, query);
   }
 
+  @Pure
   public final SqlIdentifier getName() {
     return name;
   }
 
+  @Pure
   public final SqlLiteral getStart() {
     return start;
   }
 
+  @Pure
   public final ScheduleType getScheduleType() {
     return scheduleType;
   }
 
+  @Pure
   public final SqlNode getInterval() {
     return interval;
   }
 
+  @Pure
   public final SqlNode getQuery() {
     return query;
   }

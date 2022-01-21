@@ -334,10 +334,93 @@ public class PqlServerTest {
   }
 
   /**
-   * To test the server, make calls with a real stub using the in-process channel.
-   * @return {@link ParserGrpc.ParserBlockingStub} for testing
-   * @throws IOException
+   * Test creating a model from config.
    */
+  @Test
+  public void testCreateModelFromProperties() throws IOException {
+    String statement = "create model m (\n"
+            + "n numeric encoder (x=y, y='1', a.b.c=.1), " // TODO: Change this to not support nested
+            + "b binary decoder (z=1), "
+            + "s set, " // DO we want to use this name given its meaning in SQL?
+            + "t text"
+            + ")"
+            + "preprocessing ( force_split=true, split_probabilities=ARRAY[0.7, 0.1, 0.2] )"
+            + "combiner ( type='concat' ) "
+            + "trainer ( epoch=given_range(1, 100, 10) scale=linear ) "
+            + "target b "
+            + "from ds";
+    ParseResponse response = getStub().parse(ParseRequest.newBuilder().setStatement(statement)
+            .setTargetDialect(ParseRequest.TargetDialect.SNOWFLAKE).build());
+
+    // Validate predict clause using target dialect
+    assertEquals(ParseError.getDefaultInstance(), response.getParseError());
+    assertEquals(ParseResponse.ClauseType.CREATE_MODEL, response.getClauseType());
+    CreateModelClause model = response.getClause().getCreateModel();
+    assertEquals("M", model.getName());
+    // Verify config is empty
+    assertEquals("", model.getConfig());
+    // Verify feattures
+    assertEquals(4, model.getFeatureListCount());
+    Feature f1 = model.getFeatureList(0);
+    assertEquals(Feature.FeatureType.NUMERIC, f1.getType());
+    assertEquals("N", f1.getName());
+    assertEquals(3, f1.getEncoderCount());
+    GivenItem f1e1 = f1.getEncoderOrDefault("X", null);
+    assertNotNull(f1e1);
+    assertEquals("X", f1e1.getName());
+    assertEquals(GivenItem.GivenType.IDENTIFIER, f1e1.getType());
+    assertEquals("Y", f1e1.getIdentifierValue(0));
+    // Verify processing
+    assertEquals(2, model.getPreprocessingCount());
+    GivenItem p1 = model.getPreprocessingOrDefault("FORCE_SPLIT", null);
+    assertNotNull(p1);
+    assertEquals(GivenItem.GivenType.BINARY, p1.getType());
+    assertEquals(true, p1.getBoolValue(0));
+    GivenItem p2 = model.getPreprocessingOrDefault("SPLIT_PROBABILITIES", null);
+    assertNotNull(p2);
+    assertEquals(GivenItem.GivenType.ARRAY, p2.getType());
+    assertEquals(0.7, p2.getNumericValue(0), 0);
+    assertEquals(0.1, p2.getNumericValue(1), 0);
+    assertEquals(0.2, p2.getNumericValue(2), 0);
+    // Verify combiner
+    assertEquals(1, model.getCombinerCount());
+    // Verify trainer
+    assertEquals(1, model.getTrainerCount());
+    GivenItem t1 = model.getTrainerOrDefault("EPOCH", null);
+    assertNotNull(t1);
+    assertEquals(GivenItem.GivenType.RANGE, t1.getType());
+    assertEquals(1, t1.getMinValue(), 0);
+    assertEquals(100, t1.getMaxValue(), 0);
+    assertEquals(10, t1.getStepValue(), 0);
+    // Verify target
+    assertEquals(1, model.getTargetListCount());
+    assertEquals("B", model.getTargetList(0));
+    // Verify source
+    assertEquals("DS", model.getSource().getTableRef());
+  }
+
+  /**
+   * Test creating a model from config.
+   */
+  @Test
+  public void testCreateModelAsSelect() throws IOException {
+    String statement = "CREATE MODEL m (s text, b binary) TARGET b AS SELECT * FROM ds";
+    ParseResponse response = getStub().parse(ParseRequest.newBuilder().setStatement(statement)
+            .setTargetDialect(ParseRequest.TargetDialect.SNOWFLAKE).build());
+
+    // Validate predict clause using target dialect
+    assertEquals(ParseError.getDefaultInstance(), response.getParseError());
+    assertEquals(ParseResponse.ClauseType.CREATE_MODEL, response.getClauseType());
+    CreateModelClause model = response.getClause().getCreateModel();
+    // Verify create as select
+    assertEquals("SELECT *\nFROM \"DS\"", model.getQuery());
+  }
+
+    /**
+     * To test the server, make calls with a real stub using the in-process channel.
+     * @return {@link ParserGrpc.ParserBlockingStub} for testing
+     * @throws IOException
+     */
   private ParserGrpc.ParserBlockingStub getStub() throws IOException {
     // Generate a unique in-process server name.
     String serverName = InProcessServerBuilder.generateName();

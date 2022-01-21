@@ -128,10 +128,10 @@ message CreateModelClause {
   string config = 2;
   repeated Feature featureList = 3;
   repeated string targetList = 4;
-  map<string, GivenItem> combiner = 5;
-  map<string, GivenItem> trainer = 6;
-  repeated string splitByList = 7;
-  optional DatasetRef sourceRef = 8;
+  map<string, GivenItem> preprocessing = 5;
+  map<string, GivenItem> combiner = 6;
+  map<string, GivenItem> trainer = 7;
+  optional DatasetRef source = 8;
   optional string query = 9;
 }
 
@@ -184,17 +184,18 @@ message GivenItem {
   enum GivenType {
     UNDEFINED = 0;
     IDENTIFIER = 1;
-    NUMERIC = 2;
-    STRING = 3;
-    ARRAY = 4;
-    RANGE = 5;
+    BINARY = 2;
+    NUMERIC = 3;
+    STRING = 4;
+    ARRAY = 5;
+    RANGE = 6;
   }
   GivenType type = 2;
   repeated string identifierValue = 3;
-  // TODO: Do we need to discriminate by integer vs double
-  repeated double numericValue = 4;
-  repeated string stringValue = 5;
-  optional double minValue = 6;
-  optional double maxValue = 7;
-  optional double stepValue = 8;
+  repeated bool boolValue = 4;
+  repeated double numericValue = 5;
+  repeated string stringValue = 6;
+  optional double minValue = 7;
+  optional double maxValue = 8;
+  optional double stepValue = 9;
 }

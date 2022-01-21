@@ -19,6 +19,7 @@ package com.predibase.pql.parser;
 import org.apache.calcite.sql.*;
 import org.apache.calcite.sql.parser.*;
 import org.apache.calcite.util.*;
+import org.checkerframework.dataflow.qual.*;
 
 import java.util.*;
 
@@ -76,18 +77,22 @@ public class SqlMetrics extends SqlCall {
   }
 
 
+  @Pure
   public final MetricsType getShowType() {
     return metricsType;
   }
 
+  @Pure
   public final SqlNodeList getMetricList() {
     return metricList;
   }
 
+  @Pure
   public final SqlNodeList getTargetList() {
     return targetList;
   }
 
+  @Pure
   public final SqlNodeList getModelList() {
     return modelList;
   }

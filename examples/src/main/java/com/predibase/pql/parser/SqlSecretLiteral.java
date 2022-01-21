@@ -33,7 +33,7 @@ public class SqlSecretLiteral extends SqlCharStringLiteral {
   /**
    * Constructs a secret literal.
    */
-  public SqlSecretLiteral(String charSet, String secret, SqlParserPos pos)  {
+  public SqlSecretLiteral(String charSet, String secret, SqlParserPos pos) throws ParseException {
     super(new NlsString(secret, charSet, null), pos);
     this.secret = secret;
   }

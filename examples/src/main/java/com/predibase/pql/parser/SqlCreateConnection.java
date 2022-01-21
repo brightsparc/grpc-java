@@ -95,10 +95,10 @@ public class SqlCreateConnection extends SqlCreate {
 
   /** Creates a SqlCreateSchedule. */
   public SqlCreateConnection(SqlParserPos pos, boolean replace, boolean ifNotExists,
-                             SqlIdentifier name, ConnectionType connectionType,
-                             SqlSecretLiteral accessKey, SqlSecretLiteral secretKey, SqlSecretLiteral roleArn,
-                             SqlSecretLiteral username, SqlSecretLiteral password,
-                             SqlNode connectionUri, SqlLiteral enabled) {
+      SqlIdentifier name, ConnectionType connectionType,
+      SqlSecretLiteral accessKey, SqlSecretLiteral secretKey, SqlSecretLiteral roleArn,
+      SqlSecretLiteral username, SqlSecretLiteral password,
+      SqlNode connectionUri, SqlLiteral enabled) {
     super(OPERATOR, pos, replace, ifNotExists);
     this.name = Objects.requireNonNull(name, "name");
     this.connectionType = Objects.requireNonNull(connectionType, "connectionType");

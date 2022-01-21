@@ -142,8 +142,11 @@ public class SqlPredict extends SqlCall {
   }
 
   @Pure
-  public final SqlNodeList getTargetList() {
-    return targetList;
+  public final List<SqlIdentifier> getTargetList() {
+    if (targetList != null) {
+      return targetList.stream().map(t -> (SqlIdentifier) t).collect(Collectors.toList());
+    }
+    return new ArrayList<>();
   }
 
   @Pure

@@ -61,7 +61,7 @@ public class SqlCreateDataset extends SqlCreate {
 
   /** Creates a SqlCreateSchedule. */
   public SqlCreateDataset(SqlParserPos pos, boolean replace, boolean ifNotExists,
-                          SqlIdentifier name, SqlDatasetRef targetRef, SqlDatasetRef sourceRef, SqlNode query) {
+      SqlIdentifier name, SqlDatasetRef targetRef, SqlDatasetRef sourceRef, SqlNode query) {
     super(OPERATOR, pos, replace, ifNotExists);
     this.name = Objects.requireNonNull(name, "name");
     this.targetRef = targetRef;
