@@ -704,9 +704,9 @@ public interface ExtensionSqlParserImplConstants {
   int AWS_ACCESS_KEY_ID = 698;
   int AWS_SECRET_ACCESS_KEY = 699;
   int AWS_ROLE_ARN = 700;
-  int ENABLED = 701;
-  int DATASET = 702;
-  int DATASET_URI = 703;
+  int AZURE_SAS_TOKEN = 701;
+  int ENABLED = 702;
+  int DATASET = 703;
   int DATASET_FORMAT = 704;
   int SCHEDULE = 705;
   int CRON = 706;
@@ -1514,9 +1514,9 @@ public interface ExtensionSqlParserImplConstants {
     "\"AWS_ACCESS_KEY_ID\"",
     "\"AWS_SECRET_ACCESS_KEY\"",
     "\"AWS_ROLE_ARN\"",
+    "\"AZURE_SAS_TOKEN\"",
     "\"ENABLED\"",
     "\"DATASET\"",
-    "\"DATASET_URI\"",
     "\"DATASET_FORMAT\"",
     "\"SCHEDULE\"",
     "\"CRON\"",

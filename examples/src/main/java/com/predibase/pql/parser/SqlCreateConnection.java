@@ -82,7 +82,7 @@ public class SqlCreateConnection extends SqlCreate {
   public final ConnectionType connectionType;
   public SqlSecretLiteral accessKey;
   public SqlSecretLiteral secretKey;
-  public SqlNode roleArn;
+  public SqlSecretLiteral roleArn;
   public SqlSecretLiteral username;
   public SqlSecretLiteral password;
   public final SqlNode connectionUri;
@@ -96,7 +96,7 @@ public class SqlCreateConnection extends SqlCreate {
   /** Creates a SqlCreateSchedule. */
   public SqlCreateConnection(SqlParserPos pos, boolean replace, boolean ifNotExists,
                              SqlIdentifier name, ConnectionType connectionType,
-                             SqlSecretLiteral accessKey, SqlSecretLiteral secretKey, SqlNode roleArn,
+                             SqlSecretLiteral accessKey, SqlSecretLiteral secretKey, SqlSecretLiteral roleArn,
                              SqlSecretLiteral username, SqlSecretLiteral password,
                              SqlNode connectionUri, SqlLiteral enabled) {
     super(OPERATOR, pos, replace, ifNotExists);
@@ -147,12 +147,12 @@ public class SqlCreateConnection extends SqlCreate {
   }
 
   @Pure
-  public final ConnectionType getType() {
+  public final ConnectionType getConnectionType() {
     return connectionType;
   }
 
   @Pure
-  public final SqlNode getUri() {
+  public final SqlNode getConnectionUri() {
     return connectionUri;
   }
 
@@ -167,7 +167,7 @@ public class SqlCreateConnection extends SqlCreate {
   }
 
   @Pure
-  public final SqlNode getRoleArn() {
+  public final SqlSecretLiteral getRoleArn() {
     return roleArn;
   }
 

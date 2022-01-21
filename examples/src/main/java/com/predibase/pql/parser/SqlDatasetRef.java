@@ -19,9 +19,11 @@ package com.predibase.pql.parser;
 import com.google.common.collect.*;
 import org.apache.calcite.sql.*;
 import org.apache.calcite.sql.parser.*;
+import org.apache.calcite.util.*;
 import org.checkerframework.checker.nullness.qual.*;
 
 import java.util.*;
+import java.util.function.*;
 
 /**
  * A <code>SqlDatasetRef</code> is a node of a parse tree which represents
@@ -36,22 +38,20 @@ public class SqlDatasetRef extends SqlCall {
             @Nullable SqlLiteral functionQualifier,
             SqlParserPos pos,
             @Nullable SqlNode... operands) {
-          return new SqlDatasetRef(pos, (SqlIdentifier) operands[0], operands[1], operands[2]);
+          return new SqlDatasetRef(pos, (SqlIdentifier) operands[0], (SqlNodeList) operands[2]);
         }
       };
 
   //~ Instance fields --------------------------------------------------------
 
   private final SqlIdentifier tableRef;
-  private final SqlNode uri;
-  private final SqlNode format;
+  private final SqlNodeList format;
 
   //~ Constructors -----------------------------------------------------------
 
-  public SqlDatasetRef(SqlParserPos pos, SqlIdentifier tableRef, SqlNode uri, SqlNode format) {
+  public SqlDatasetRef(SqlParserPos pos, SqlIdentifier tableRef, SqlNodeList format) {
     super(pos);
     this.tableRef = Objects.requireNonNull(tableRef, "tableRef");
-    this.uri = uri;
     this.format = format;
   }
 
@@ -62,7 +62,7 @@ public class SqlDatasetRef extends SqlCall {
   }
 
   @Override public List<SqlNode> getOperandList() {
-    return ImmutableList.of(tableRef, uri, format);
+    return ImmutableList.of(tableRef, format);
   }
 
   /** Returns the dataset name as a sql identifier. */
@@ -70,29 +70,28 @@ public class SqlDatasetRef extends SqlCall {
     return tableRef;
   }
 
-  /** Returns the dataset uri as a sql literal. */
-  public SqlLiteral getUri() {
-    return (SqlLiteral) uri;
-  }
-
   /** Returns the dataset format. */
-  public SqlNode getFormat() {
+  public SqlNodeList getFormat() {
     return format;
   }
 
+  /** Calls an action for each (name, literal) pair from {@code format}, in which
+   * they alternate. */
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  public void forEachFormat(BiConsumer<SqlIdentifier, SqlLiteral> consumer) {
+    List list = this.format;
+    Pair.forEach((List<SqlIdentifier>) Util.quotientList(list, 2, 0),
+        Util.quotientList((List<SqlLiteral>) list, 2, 1), consumer);
+  }
+
   @Override public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
-    // TODO: Consider if we want to output DATASET before dataset names?
-    // writer.keyword("DATASET");
     tableRef.unparse(writer, leftPrec, rightPrec);
-    if (uri != null) {
-      writer.keyword("DATASET_URI");
-      writer.keyword("=");
-      uri.unparse(writer, leftPrec, rightPrec);
-    }
     if (format != null) {
       writer.keyword("DATASET_FORMAT");
       writer.keyword("=");
+      SqlWriter.Frame frame = writer.startList("(", ")");
       format.unparse(writer, leftPrec, rightPrec);
+      writer.endList(frame);
     }
   }
 }

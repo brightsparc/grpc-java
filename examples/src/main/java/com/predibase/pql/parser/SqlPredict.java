@@ -19,6 +19,7 @@ package com.predibase.pql.parser;
 import org.apache.calcite.sql.*;
 import org.apache.calcite.sql.parser.*;
 import org.apache.calcite.util.*;
+import org.checkerframework.dataflow.qual.*;
 
 import java.util.*;
 import java.util.stream.*;
@@ -115,7 +116,7 @@ public class SqlPredict extends SqlCall {
 
     this.into = into; // may be null
 
-    this.model = Objects.requireNonNull(model, "model");
+    this.model = model; // may be null
 
     this.given = Objects.requireNonNull(given, "given");
   }
@@ -130,28 +131,33 @@ public class SqlPredict extends SqlCall {
     return SqlKind.OTHER;
   }
 
+  @Pure
   public final PredictType getPredictType() {
     return predictType;
   }
 
+  @Pure
   public final WithQualifier getWithQualifier() {
     return withQualifier;
   }
 
+  @Pure
   public final SqlNodeList getTargetList() {
     return targetList;
   }
 
+  @Pure
   public final SqlNode getInto() {
     return into;
   }
 
+  @Pure
   public final SqlModelRef getModel() {
     return model;
   }
 
+  @Pure
   public final SqlNodeList getGiven() {
-    // Returns the node list of all types fo given
     return given;
   }
 
@@ -161,8 +167,8 @@ public class SqlPredict extends SqlCall {
    */
   public final Stream<SqlGivenItem> getGivenItems() {
     return given.stream()
-            .filter(g -> g instanceof SqlGivenItem)
-            .map(g -> (SqlGivenItem) g);
+        .filter(g -> g instanceof SqlGivenItem)
+        .map(g -> (SqlGivenItem) g);
   }
 
   /**
@@ -171,8 +177,8 @@ public class SqlPredict extends SqlCall {
    */
   public final Stream<SqlSelect> getGivenSelect() {
     return given.stream()
-            .filter(g -> g instanceof  SqlSelect)
-            .map(g -> (SqlSelect) g);
+        .filter(g -> g instanceof  SqlSelect)
+        .map(g -> (SqlSelect) g);
   }
 
   @Override public List<SqlNode> getOperandList() {
@@ -180,9 +186,6 @@ public class SqlPredict extends SqlCall {
     return ImmutableNullableList.of(predictType.symbol(SqlParserPos.ZERO), targetList,
         withQualifier.symbol(SqlParserPos.ZERO), into, model, given);
   }
-
-  // TODO: Consider if we need to support setOperand, and change types to non-final
-  // eg: predictType = ((SqlLiteral) operand).getValueAs(SqlPredict.PredictType.class);
 
   @Override public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
     if (!writer.inQuery()) {
@@ -220,13 +223,15 @@ public class SqlPredict extends SqlCall {
       into.unparse(writer, leftPrec, rightPrec);
     }
 
-    writer.newlineAndIndent();
-    writer.keyword("USING");
-    model.unparse(writer, 0, 0);
+    if (model != null) {
+      writer.newlineAndIndent();
+      writer.keyword("USING");
+      model.unparse(writer, leftPrec, rightPrec);
+    }
 
     writer.newlineAndIndent();
     writer.keyword("GIVEN");
-    given.unparse(writer, 0, 0);
+    given.unparse(writer, leftPrec, rightPrec);
 
   }
 }

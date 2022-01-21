@@ -165,7 +165,7 @@ public class PqlServerTest {
   @Test
   public void testPredictParseError() throws IOException {
     // Define malformed predict query that is missing USING statement
-    String statement = "PREDICT x GIVEN y";
+    String statement = "PREDICT x USING y";
     ParseResponse response = getStub().parse(ParseRequest.newBuilder()
             .setStatement(statement).setTargetDialect(ParseRequest.TargetDialect.SNOWFLAKE).build());
 
@@ -173,28 +173,22 @@ public class PqlServerTest {
     ParseError err = response.getParseError();
     assertNotEquals(ParseError.getDefaultInstance(), err);
     // Verify error message
-    assertEquals("Encountered \"GIVEN\" at line 1, column 11.\n" +
+    assertEquals("Encountered \"<EOF>\" at line 1, column 17.\n" +
             "Was expecting one of:\n" +
-            "    \"INTO\" ...\n" +
-            "    \"USING\" ...\n" +
-            "    \"WITH\" ...\n" +
-            "    \")\" ...\n" +
-            "    \",\" ...\n" +
+            "    \"VERSION\" ...\n" +
+            "    \"GIVEN\" ...\n" +
             "    \".\" ...\n" +
             "    ", err.getMessage());
     // Verify tokens
-    assertEquals(6, err.getExpectedTokensCount());
-    assertEquals("\")\"", err.getExpectedTokens(0));
-    assertEquals("\",\"", err.getExpectedTokens(1));
-    assertEquals("\".\"", err.getExpectedTokens(2));
-    assertEquals("\"INTO\"", err.getExpectedTokens(3));
-    assertEquals("\"USING\"", err.getExpectedTokens(4));
-    assertEquals("\"WITH\"", err.getExpectedTokens(5));
+    assertEquals(3, err.getExpectedTokensCount());
+    assertEquals("\".\"", err.getExpectedTokens(0));
+    assertEquals("\"GIVEN\"", err.getExpectedTokens(1));
+    assertEquals("\"VERSION\"", err.getExpectedTokens(2));
     // Verify position
     assertEquals(1, err.getPosition().getLineNumber());
     assertEquals(1, err.getPosition().getEndLineNumber());
-    assertEquals(11, err.getPosition().getColumnNumber());
-    assertEquals(11, err.getPosition().getEndColumnNumber());
+    assertEquals(17, err.getPosition().getColumnNumber());
+    assertEquals(17, err.getPosition().getEndColumnNumber());
     assertEquals(ParseResponse.ClauseType.UNDEFINED, response.getClauseType());
   }
 
@@ -231,10 +225,16 @@ public class PqlServerTest {
     CreateConnectionClause conn = response.getClause().getCreateConnection();
     assertEquals("S3_CONNECTION", conn.getName());
     assertEquals(CreateConnectionClause.ConnectionType.S3, conn.getConnectionType());
-    assertEquals("access_key", conn.getAccessKey());
-    assertEquals("secret_key", conn.getSecretKey());
-    assertEquals("arn:aws:iam::001234567890:role/myrole", conn.getRoleArn());
-    assertEquals("s3://bucket/path", conn.getConnectionUri());
+    // Validate secret properties
+    assertEquals(4, conn.getSecretPropertiesCount());
+    assertEquals("access_key", conn.getSecretPropertiesOrDefault(
+            PqlParser.SecretProperties.AWS_ACCESS_KEY_ID.name(), null));
+    assertEquals("secret_key", conn.getSecretPropertiesOrDefault(
+            PqlParser.SecretProperties.AWS_SECRET_ACCESS_KEY.name(), null));
+    assertEquals("arn:aws:iam::001234567890:role/myrole", conn.getSecretPropertiesOrDefault(
+            PqlParser.SecretProperties.AWS_ROLE_ARN.name(), null));
+    assertEquals("s3://bucket/path", conn.getSecretPropertiesOrDefault(
+            PqlParser.SecretProperties.CONNECTION_URI.name(), null));
   }
 
   /**
@@ -256,9 +256,12 @@ public class PqlServerTest {
     CreateConnectionClause conn = response.getClause().getCreateConnection();
     assertEquals("DB_CONNECTION", conn.getName());
     assertEquals(CreateConnectionClause.ConnectionType.SNOWFLAKE, conn.getConnectionType());
-    assertEquals("username", conn.getUsername());
-    assertEquals("password", conn.getPassword());
-    assertEquals("jdbc:snowflake://<account_identifier>.snowflakecomputing.com", conn.getConnectionUri());
+    assertEquals("username", conn.getSecretPropertiesOrDefault(
+            PqlParser.SecretProperties.USERNAME.name(), null));
+    assertEquals("password", conn.getSecretPropertiesOrDefault(
+            PqlParser.SecretProperties.PASSWORD.name(), null));
+    assertEquals("jdbc:snowflake://<account_identifier>.snowflakecomputing.com",
+            conn.getSecretPropertiesOrDefault(PqlParser.SecretProperties.CONNECTION_URI.name(), null));
   }
 
   /**
@@ -267,10 +270,8 @@ public class PqlServerTest {
   @Test
   public void testS3Dataset() throws IOException {
     String statement = "create dataset s3_dataset "
-            + "into s3_target dataset_uri = 's3://bucket/target' "
-            + "dataset_format ( type='parquet' )"
-            + "from s3_source dataset_uri = 's3://bucket/source'"
-            + "dataset_format ( type='csv' )";
+            + "into s3_target dataset_format ( type='parquet' )"
+            + "from s3_source dataset_format ( type='csv' )";
     ParseResponse response = getStub().parse(ParseRequest.newBuilder().setStatement(statement)
             .setTargetDialect(ParseRequest.TargetDialect.SNOWFLAKE).build());
 
@@ -281,14 +282,12 @@ public class PqlServerTest {
     assertEquals("S3_DATASET", ds.getName());
     // Get target properties
     assertEquals("S3_TARGET", ds.getTarget().getTableRef());
-    assertEquals("s3://bucket/target", ds.getTarget().getDatasetUri());
-    assertEquals(1, ds.getTarget().getFormatCount());
-    assertEquals("parquet", ds.getTarget().getFormatOrDefault("TYPE", null));
+    assertEquals(1, ds.getTarget().getFormatPropertiesCount());
+    assertEquals("parquet", ds.getTarget().getFormatPropertiesOrDefault("TYPE", null));
     // Get source properties
     assertEquals("S3_SOURCE", ds.getSource().getTableRef());
-    assertEquals("s3://bucket/source", ds.getSource().getDatasetUri());
-    assertEquals(1, ds.getSource().getFormatCount());
-    assertEquals("csv", ds.getSource().getFormatOrDefault("TYPE", null));
+    assertEquals(1, ds.getSource().getFormatPropertiesCount());
+    assertEquals("csv", ds.getSource().getFormatPropertiesOrDefault("TYPE", null));
   }
 
   /**

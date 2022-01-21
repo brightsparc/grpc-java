@@ -20,6 +20,7 @@ import com.google.common.collect.*;
 import org.apache.calcite.rel.type.*;
 import org.apache.calcite.sql.*;
 import org.apache.calcite.sql.parser.*;
+import org.checkerframework.checker.nullness.qual.*;
 
 import java.util.*;
 
@@ -33,9 +34,9 @@ public class SqlModelRef extends SqlCall {
   private static final SqlOperator OPERATOR =
       new SqlSpecialOperator("DATASET REF", SqlKind.OTHER) {
         @Override public SqlCall createCall(
-            SqlLiteral functionQualifier,
+            @Nullable SqlLiteral functionQualifier,
             SqlParserPos pos,
-            SqlNode... operands) {
+            @Nullable SqlNode... operands) {
           return new SqlModelRef(pos,
               (SqlIdentifier) Objects.requireNonNull(operands[0], "name"),
               ((SqlLiteral) Objects.requireNonNull(operands[2], "version"))
@@ -78,8 +79,6 @@ public class SqlModelRef extends SqlCall {
   }
 
   @Override public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
-    // TODO: Consider if we want to output MODEL before model names?
-    // writer.keyword("MODEL");
     name.unparse(writer, 0, 0);
     if (version != RelDataType.PRECISION_NOT_SPECIFIED) {
       writer.keyword("VERSION");

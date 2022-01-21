@@ -16,6 +16,7 @@ import java.util.stream.*;
 public class PqlParser extends ParserGrpc.ParserImplBase {
     // TODO: Use structured logging
     private static final Logger logger = Logger.getLogger(PqlServer.class.getName());
+
     // Create prom metrics for requests, payload size, and latency
     static final Counter requests = Counter.build()
             .name("requests").help("Total requests.")
@@ -26,6 +27,24 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
             .name("requests_size_bytes").help("Request size in bytes.").register();
     static final Histogram requestLatency = Histogram.build()
             .name("requests_latency_seconds").help("Request latency in seconds.").register();
+
+    /** Secret properties keys */
+    public enum SecretProperties implements Symbolizable {
+        /** Secret properties key for S3 AWS_ACCESS_KEY_ID. */
+        AWS_ACCESS_KEY_ID,
+        /** Secret properties key for S3 AWS_SECRET_ACCESS_KEY. */
+        AWS_SECRET_ACCESS_KEY,
+        /** Secret properties key for S3 AWS_ROLE_ARN. */
+        AWS_ROLE_ARN,
+        /** Secret properties key for ADLS AZURE_SAS_TOKEN. */
+        AZURE_SAS_TOKEN,
+        /** Secret properties key for database USERNAME. */
+        USERNAME,
+        /** Secret properties key for database PASSWORD. */
+        PASSWORD,
+        /** Secret properties key for database PASSWORD. */
+        CONNECTION_URI,
+    }
 
     // Create static methods for parser factory and source dialect
     final static SqlParser.Config pqlParser = SqlParser.config()
@@ -130,28 +149,37 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
     private ParseResponse parseCreateConnection(SqlCreateConnection node) {
         CreateConnectionClause.Builder builder = CreateConnectionClause.newBuilder()
                 .setName(node.getNameAs(String.class))
-                .setConnectionType(CreateConnectionClause.ConnectionType.valueOf(node.getType().toString()));
+                .setConnectionType(CreateConnectionClause.ConnectionType.valueOf(node.getConnectionType().toString()));
 
         // If blob store, set access and secret key, else set username and password
-        switch (node.getType()) {
+        switch (node.getConnectionType()) {
             case S3:
-                builder.setAccessKey(node.getAccessKey().getValueAs(String.class));
-                builder.setSecretKey(node.getSecretKey().getValueAs(String.class));
+                builder.putSecretProperties(SecretProperties.AWS_ACCESS_KEY_ID.name(),
+                        node.getAccessKey().getValueAs(String.class));
+                builder.putSecretProperties(SecretProperties.AWS_SECRET_ACCESS_KEY.name(),
+                        node.getSecretKey().getValueAs(String.class));
                 if (node.getRoleArn() != null) {
-                    builder.setRoleArn(((SqlLiteral) node.getRoleArn()).getValueAs(String.class));
+                    builder.putSecretProperties(SecretProperties.AWS_ROLE_ARN.name(),
+                            node.getRoleArn().getValueAs(String.class));
                 }
                 break;
             case ADLS:
+                builder.putSecretProperties(SecretProperties.AZURE_SAS_TOKEN.name(),
+                        node.getUsername().getValueAs(String.class));
+                break;
             case GCS:
-                // TODO: Add credentials
                 break;
             default:
-                builder.setUsername(node.getUsername().getValueAs(String.class));
-                builder.setPassword(node.getPassword().getValueAs(String.class));
+                builder.putSecretProperties(SecretProperties.USERNAME.name(),
+                        node.getUsername().getValueAs(String.class));
+                builder.putSecretProperties(SecretProperties.PASSWORD.name(),
+                        node.getPassword().getValueAs(String.class));
+                break;
         }
 
-        if (node.getUri() != null) {
-            builder.setConnectionUri(((SqlLiteral) node.getUri()).getValueAs(String.class));
+        if (node.getConnectionUri() != null) {
+            builder.putSecretProperties(SecretProperties.CONNECTION_URI.name(),
+                    ((SqlLiteral) node.getConnectionUri()).getValueAs(String.class));
         }
 
         return ParseResponse.newBuilder()
@@ -183,15 +211,10 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
 
     private DatasetRef parseDatasetRef(SqlDatasetRef node) {
         DatasetRef.Builder builder = DatasetRef.newBuilder()
-                .setTableRef(parseIdentifier(node.getTableRef()))
-                .setDatasetUri(node.getUri().getValueAs(String.class));
+                .setTableRef(parseIdentifier(node.getTableRef()));
         if (node.getFormat() != null) {
-            // Enumerate over the list of Identifier/StringLiteral pairs to
-            final List list = (SqlNodeList) node.getFormat();
-            Pair.forEach((List<SqlIdentifier>) Util.quotientList(list, 2, 0),
-                    Util.quotientList((List<SqlLiteral>) list, 2, 1), (k, v) ->
-                            builder.putFormat(parseIdentifier(k), v.getValueAs(String.class))
-            );
+            node.forEachFormat((k, v) ->
+                    builder.putFormatProperties(parseIdentifier(k), v.getValueAs(String.class)));
         }
         return builder.build();
     }
@@ -213,7 +236,10 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
                     builder.putTrainer(item.getNameAs(String.class), parseGivenItem(item)));
             // Add split by as string list
             builder.addAllSplitByList(node.getSplitBy().stream().map(sb -> sb.toString()).collect(Collectors.toList()));
+
+
             //builder.setSourceRef(node.getSourceRef().getTableRef().getSimple());
+
         }
         return ParseResponse.newBuilder()
                 .setClauseType(ParseResponse.ClauseType.CREATE_MODEL)

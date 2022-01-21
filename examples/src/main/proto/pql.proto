@@ -107,12 +107,7 @@ message CreateConnectionClause {
   }
   string name = 1;
   ConnectionType connectionType = 2;
-  optional string accessKey = 3;
-  optional string secretKey = 4;
-  optional string roleArn = 5;
-  optional string username = 6;
-  optional string password = 7;
-  string connectionUri = 8;
+  map<string, string> secretProperties = 4;
   bool enabled = 9;
 }
 
@@ -125,8 +120,7 @@ message CreateDatasetClause {
 
 message DatasetRef {
   string tableRef = 1;
-  optional string datasetUri = 2;
-  map<string, string> format = 3;
+  map<string, string> formatProperties = 2;
 }
 
 message CreateModelClause {

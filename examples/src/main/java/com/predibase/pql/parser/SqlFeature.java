@@ -19,11 +19,9 @@ package com.predibase.pql.parser;
 import com.google.common.collect.*;
 import org.apache.calcite.sql.*;
 import org.apache.calcite.sql.parser.*;
-import org.apache.calcite.util.*;
 import org.checkerframework.checker.nullness.qual.*;
 
 import java.util.*;
-import java.util.function.*;
 import java.util.stream.*;
 
 import static java.util.Objects.*;
@@ -185,12 +183,18 @@ public class SqlFeature extends SqlCall {
 
   /** Returns the encoder. */
   public List<SqlGivenItem> getEncoder() {
-    return encoder.stream().map(e -> (SqlGivenItem) e).collect(Collectors.toList());
+    if (encoder != null) {
+      return encoder.stream().map(e -> (SqlGivenItem) e).collect(Collectors.toList());
+    }
+    return new ArrayList<>();
   }
 
   /** Returns the decoder. */
   public List<SqlGivenItem> getDecoder() {
-    return decoder.stream().map(e -> (SqlGivenItem) e).collect(Collectors.toList());
+    if (decoder != null) {
+      return decoder.stream().map(e -> (SqlGivenItem) e).collect(Collectors.toList());
+    }
+    return new ArrayList<>();
   }
 
   @Override public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
@@ -219,13 +223,5 @@ public class SqlFeature extends SqlCall {
       });
       writer.endList(frame);
     }
-  }
-
-  /** Calls an action for each (name, type) pair from {@code columnList}, in which
-   * they alternate. */
-  @SuppressWarnings({"unchecked", "rawtypes"})
-  public void forEachFeatureOption(List list, BiConsumer<SqlIdentifier, SqlLiteral> consumer) {
-    Pair.forEach((List<SqlIdentifier>) Util.quotientList(list, 2, 0),
-        Util.quotientList((List<SqlLiteral>) list, 2, 1), consumer);
   }
 }
