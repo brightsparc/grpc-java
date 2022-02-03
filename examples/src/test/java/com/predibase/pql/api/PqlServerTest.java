@@ -126,7 +126,7 @@ public class PqlServerTest {
    */
   @Test
   public void testPredictGivenItems() throws IOException {
-    String predictGiven = predictStmt + ", i=id, s='s', f=0.1, a=ARRAY[1,2], r=given_range(1,100,10)";
+    String predictGiven = predictStmt + ", i=id, s='s', f=0.1, a=ARRAY[1,2], r=range(1,100,10)";
     ParseResponse response = getStub().parse(ParseRequest.newBuilder().setStatement(predictGiven)
             .setTargetDialect(ParseRequest.TargetDialect.SNOWFLAKE).build());
 
@@ -137,7 +137,7 @@ public class PqlServerTest {
             "USING \"M\"\n" +
             "GIVEN (SELECT *\n" +
             "FROM \"S1\"), " +
-            "\"I\" = \"ID\", \"S\" = 's', \"F\" = 0.1, \"A\" = ARRAY[1, 2], \"R\" = GIVEN_RANGE (1, 100, 10)",
+            "\"I\" = \"ID\", \"S\" = 's', \"F\" = 0.1, \"A\" = ARRAY[1, 2], \"R\" = RANGE (1, 100, 10)",
             response.getParsedSql());
     PredictClause predict = response.getClause().getPredictClause();
     // Verify we also have a select
@@ -156,7 +156,7 @@ public class PqlServerTest {
     assertEquals(GivenItem.GivenType.RANGE, predict.getGivenList(4).getType());
     assertEquals(1, predict.getGivenList(4).getMinValue(), 0);
     assertEquals(100, predict.getGivenList(4).getMaxValue(), 0);
-    assertEquals(10, predict.getGivenList(4).getStepValue(), 0);
+    assertEquals(10, predict.getGivenList(4).getStepsValue(), 0);
   }
 
   /**
@@ -329,8 +329,9 @@ public class PqlServerTest {
     assertEquals(ParseResponse.ClauseType.CREATE_MODEL, response.getClauseType());
     CreateModelClause model = response.getClause().getCreateModel();
     assertEquals("M", model.getName());
-    // Verify target and source are empty
-    assertEquals("{ \"x\": 1 }", model.getConfig());
+    // Get config value as String
+    String config = model.getConfig().getValue().toStringUtf8();
+    assertEquals("{ \"x\": 1 }", config);
   }
 
   /**
@@ -343,12 +344,13 @@ public class PqlServerTest {
             + "b binary decoder (z=1), "
             + "s set, " // DO we want to use this name given its meaning in SQL?
             + "t text"
-            + ")"
-            + "preprocessing ( force_split=true, split_probabilities=ARRAY[0.7, 0.1, 0.2] )"
+            + ") "
+            + "processor ( force_split=true, split_probabilities=ARRAY[0.7, 0.1, 0.2] )"
             + "combiner ( type='concat' ) "
-            + "trainer ( epoch=given_range(1, 100, 10) scale=linear ) "
+            + "trainer ( epoch=range(1, 100, 10, LINEAR) ) "
             + "target b "
             + "from ds";
+    System.out.println(statement);
     ParseResponse response = getStub().parse(ParseRequest.newBuilder().setStatement(statement)
             .setTargetDialect(ParseRequest.TargetDialect.SNOWFLAKE).build());
 
@@ -357,44 +359,50 @@ public class PqlServerTest {
     assertEquals(ParseResponse.ClauseType.CREATE_MODEL, response.getClauseType());
     CreateModelClause model = response.getClause().getCreateModel();
     assertEquals("M", model.getName());
-    // Verify config is empty
-    assertEquals("", model.getConfig());
-    // Verify feattures
-    assertEquals(4, model.getFeatureListCount());
-    Feature f1 = model.getFeatureList(0);
-    assertEquals(Feature.FeatureType.NUMERIC, f1.getType());
-    assertEquals("N", f1.getName());
-    assertEquals(3, f1.getEncoderCount());
-    GivenItem f1e1 = f1.getEncoderOrDefault("X", null);
-    assertNotNull(f1e1);
-    assertEquals("X", f1e1.getName());
-    assertEquals(GivenItem.GivenType.IDENTIFIER, f1e1.getType());
-    assertEquals("Y", f1e1.getIdentifierValue(0));
+    // Get config as ModelConfig class
+    ModelConfig config = model.getConfig().unpack(ModelConfig.class);
+    // Verify input features
+    assertEquals(3, config.getInputFeatureCount());
+    Feature i1 = config.getInputFeature(0);
+    assertEquals(Feature.FeatureType.NUMERIC, i1.getType());
+    assertEquals("N", i1.getName());
+    assertEquals(3, i1.getEncoderCount());
+    GivenItem i1e1 = i1.getEncoderOrDefault("X", null);
+    assertNotNull(i1e1);
+    assertEquals(GivenItem.GivenType.IDENTIFIER, i1e1.getType());
+    assertEquals("Y", i1e1.getIdentifierValue(0));
+    // Verify output features
+    assertEquals(1, config.getOutputFeatureCount());
+    Feature o1 = config.getOutputFeature(0);
+    assertEquals(Feature.FeatureType.BINARY, o1.getType());
+    assertEquals("B", o1.getName());
+    assertEquals(1, o1.getDecoderCount());
+    GivenItem o1d1 = o1.getDecoderOrDefault("Z", null);
+    assertNotNull(o1d1);
+    assertEquals(GivenItem.GivenType.NUMERIC, o1d1.getType());
+    assertEquals(1, o1d1.getNumericValue(0), 0);
     // Verify processing
-    assertEquals(2, model.getPreprocessingCount());
-    GivenItem p1 = model.getPreprocessingOrDefault("FORCE_SPLIT", null);
+    assertEquals(2, config.getProcessorCount());
+    GivenItem p1 = config.getProcessorOrDefault("FORCE_SPLIT", null);
     assertNotNull(p1);
     assertEquals(GivenItem.GivenType.BINARY, p1.getType());
     assertEquals(true, p1.getBoolValue(0));
-    GivenItem p2 = model.getPreprocessingOrDefault("SPLIT_PROBABILITIES", null);
+    GivenItem p2 = config.getProcessorOrDefault("SPLIT_PROBABILITIES", null);
     assertNotNull(p2);
     assertEquals(GivenItem.GivenType.ARRAY, p2.getType());
     assertEquals(0.7, p2.getNumericValue(0), 0);
     assertEquals(0.1, p2.getNumericValue(1), 0);
     assertEquals(0.2, p2.getNumericValue(2), 0);
     // Verify combiner
-    assertEquals(1, model.getCombinerCount());
+    assertEquals(1, config.getCombinerCount());
     // Verify trainer
-    assertEquals(1, model.getTrainerCount());
-    GivenItem t1 = model.getTrainerOrDefault("EPOCH", null);
+    assertEquals(1, config.getTrainerCount());
+    GivenItem t1 = config.getTrainerOrDefault("EPOCH", null);
     assertNotNull(t1);
     assertEquals(GivenItem.GivenType.RANGE, t1.getType());
     assertEquals(1, t1.getMinValue(), 0);
     assertEquals(100, t1.getMaxValue(), 0);
-    assertEquals(10, t1.getStepValue(), 0);
-    // Verify target
-    assertEquals(1, model.getTargetListCount());
-    assertEquals("B", model.getTargetList(0));
+    assertEquals(10, t1.getStepsValue(), 0);
     // Verify source
     assertEquals("DS", model.getSource().getTableRef());
   }

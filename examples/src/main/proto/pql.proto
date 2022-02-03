@@ -13,6 +13,8 @@
 // limitations under the License.
 syntax = "proto3";
 
+import "google/protobuf/any.proto";
+
 option java_multiple_files = true;
 option java_package = "com.predibase.pql.api";
 option java_outer_classname = "PqlProto";
@@ -80,7 +82,7 @@ message ParserPos {
   int32 endColumnNumber = 4;
 }
 
-// Clause is one of the following (matching ClauseType enum)
+// TODO: Depreciate this for ANY type
 message Clause {
   optional NativeSqlClause nativeSqlClause = 1;
   optional CreateConnectionClause createConnection = 10;
@@ -125,14 +127,17 @@ message DatasetRef {
 
 message CreateModelClause {
   string name = 1;
-  string config = 2;
-  repeated Feature featureList = 3;
-  repeated string targetList = 4;
-  map<string, GivenItem> preprocessing = 5;
-  map<string, GivenItem> combiner = 6;
-  map<string, GivenItem> trainer = 7;
-  optional DatasetRef source = 8;
-  optional string query = 9;
+  google.protobuf.Any config = 2; // This is either a JSON string value, or packed ModelConfig
+  optional DatasetRef source = 3;
+  optional string query = 4;
+}
+
+message ModelConfig { // This is the structured model config object
+  repeated Feature inputFeature = 1;
+  repeated Feature outputFeature = 2;
+  map<string, GivenItem> processor = 3;
+  map<string, GivenItem> combiner = 4;
+  map<string, GivenItem> trainer = 5;
 }
 
 message Feature {
@@ -149,11 +154,12 @@ message Feature {
     AUDIO = 9;
     IMAGE = 10;
     DATE = 11;
-    GEOMETRY = 12;
+    H3 = 12;
     VECTOR = 13;
   }
   string name = 1;
   FeatureType type = 2;
+  map<string, GivenItem> processor = 3;
   map<string, GivenItem> encoder = 4;
   map<string, GivenItem> decoder = 5;
 }
@@ -191,11 +197,12 @@ message GivenItem {
     RANGE = 6;
   }
   GivenType type = 2;
+  // TODO: Change this to ANY type
   repeated string identifierValue = 3;
   repeated bool boolValue = 4;
   repeated double numericValue = 5;
   repeated string stringValue = 6;
   optional double minValue = 7;
   optional double maxValue = 8;
-  optional double stepValue = 9;
+  optional double stepsValue = 9;
 }

@@ -1,5 +1,6 @@
 package com.predibase.pql.api;
 
+import com.google.protobuf.*;
 import com.predibase.pql.parser.*;
 import io.grpc.stub.*;
 import io.prometheus.client.*;
@@ -220,22 +221,33 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
         CreateModelClause.Builder builder = CreateModelClause.newBuilder()
                 .setName(node.getNameAs(String.class));
         if (node.getConfig() != null) {
-            builder.setConfig(((SqlLiteral) node.getConfig()).getValueAs(String.class));
+            String config = ((SqlLiteral) node.getConfig()).getValueAs(String.class);
+            builder.setConfig(Any.newBuilder().setValue(ByteString.copyFromUtf8(config)));
         } else {
-            // Add features using the feature list builder
-            builder.addAllFeatureList(node.getFeatureList().stream().map(f ->
-                    parseFeature(f)).collect(Collectors.toList()));
-            builder.addAllTargetList(node.getTargetList().stream().map(t ->
-                    parseIdentifier(t)).collect(Collectors.toList()));
+            // Create a new ModelConfig builder for setting specific properties that map closely to JSON string
+            ModelConfig.Builder config = ModelConfig.newBuilder();
+            // Get the targets
+            List<String> targets = node.getTargetList().stream().map(t ->
+                    parseIdentifier(t)).collect(Collectors.toList());
+            node.getFeatureList().forEach(f -> {
+                Feature feature = parseFeature(f);
+                if (targets.contains(feature.getName())) {
+                    config.addOutputFeature(feature);
+                } else {
+                    config.addInputFeature(feature);
+                }
+            });
             // Add preprocessing
-            node.getPreprocessing().forEach(item ->
-                    builder.putPreprocessing(item.getNestedNameAs(String.class), parseGivenItem(item)));
+            node.getProcessor().forEach(item ->
+                    config.putProcessor(item.getNestedNameAs(String.class), parseGivenItem(item)));
             // Add combiner
             node.getCombiner().forEach(item ->
-                    builder.putCombiner(item.getNestedNameAs(String.class), parseGivenItem(item)));
+                    config.putCombiner(item.getNestedNameAs(String.class), parseGivenItem(item)));
             // Add combiner
             node.getTrainer().forEach(item ->
-                    builder.putTrainer(item.getNestedNameAs(String.class), parseGivenItem(item)));
+                    config.putTrainer(item.getNestedNameAs(String.class), parseGivenItem(item)));
+            // Set the config from the builder
+            builder.setConfig(Any.pack(config.build()));
         }
         if (node.getSourceRef() != null) {
             builder.setSource(parseDatasetRef(node.getSourceRef()));
@@ -254,9 +266,11 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
         Feature.Builder builder = Feature.newBuilder()
                 .setName(feature.getNameAs(String.class))
                 .setType(Feature.FeatureType.valueOf(feature.getGivenType().toString()));
+        feature.getProcessor().forEach(item ->
+                builder.putProcessor(item.getNestedNameAs(String.class), parseGivenItem(item)));
         feature.getEncoder().forEach(item ->
                 builder.putEncoder(item.getNestedNameAs(String.class), parseGivenItem(item)));
-        feature.getEncoder().forEach(item ->
+        feature.getDecoder().forEach(item ->
                 builder.putDecoder(item.getNestedNameAs(String.class), parseGivenItem(item)));
         return builder.build();
     }
@@ -335,8 +349,8 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
                 SqlGivenRange rng = (SqlGivenRange) item.getValue();
                 builder.setMinValue(rng.getMin().getValueAs(Double.class));
                 builder.setMaxValue(rng.getMax().getValueAs(Double.class));
-                if (rng.getStep() != null) {
-                    builder.setStepValue(rng.getStep().getValueAs(Double.class));
+                if (rng.getSteps() != null) {
+                    builder.setStepsValue(rng.getSteps().getValueAs(Double.class));
                 }
                 return builder.build();
             default:
