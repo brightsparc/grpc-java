@@ -25,8 +25,8 @@ import org.checkerframework.checker.nullness.qual.*;
 import java.util.*;
 
 /**
- * A <code>SqlDatasetRef</code> is a node of a parse tree which represents
- * a sql given statement for the <code>SqlCreateDataset</code> clause.
+ * A <code>SqlModelRef</code> is a node of a parse tree which represents
+ * a sql given statement for the <code>SqlCreateModel</code> clause.
  *
  * <p>Basic grammar is the tableRef followed by optional uri and format.
  **/

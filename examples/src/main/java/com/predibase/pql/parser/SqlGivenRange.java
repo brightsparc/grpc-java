@@ -29,11 +29,11 @@ import static java.util.Objects.*;
  * A <code>SqlNumericRange</code> is a node of a parse tree which represents
  * a sql given statement for the <code>SqlPredict</code> clause.
  *
- * <p>Basic given grammar is: sequence (min, max[, step]) scale = [auto, log, linear].
+ * <p>Basic given grammar is: sequence (min, max [, steps] [, log | linear]).
  */
 public class SqlGivenRange extends SqlCall {
   private static final SqlOperator OPERATOR =
-      new SqlSpecialOperator("SEQUENCE", SqlKind.OTHER) {
+      new SqlSpecialOperator("RANGE", SqlKind.OTHER) {
         @Override public SqlCall createCall(
             @Nullable SqlLiteral functionQualifier,
             SqlParserPos pos,
@@ -42,8 +42,8 @@ public class SqlGivenRange extends SqlCall {
               (SqlNumericLiteral) requireNonNull(operands[0], "min"),
               (SqlNumericLiteral) requireNonNull(operands[1], "max"),
               (SqlNumericLiteral) operands[2],
-              ((SqlLiteral) requireNonNull(operands[3], "rangeType"))
-                  .getValueAs(RangeType.class));
+              ((SqlLiteral) requireNonNull(operands[3], "scaleType"))
+                  .getValueAs(ScaleType.class));
         }
       };
 
@@ -51,20 +51,19 @@ public class SqlGivenRange extends SqlCall {
   //~ Enums ------------------------------------------------------------------
 
   /**
-   * The given type.
+   * The scale type.
    */
-  public enum RangeType implements Symbolizable {
-    /** Enumeration that  implements Symbolizable {
+  public enum ScaleType implements Symbolizable {
      /**
-     * The given value is a simple identifier.
+     * The scale is auto.
      */
     AUTO,
     /**
-     * The given value is a numeric literal.
+     * The scale is linear.
      */
     LINEAR,
     /**
-     * The given value is a string literal.
+     * The scale is log.
      */
     LOG
   }
@@ -73,8 +72,8 @@ public class SqlGivenRange extends SqlCall {
 
   private final SqlNumericLiteral min;
   private final SqlNumericLiteral max;
-  private final SqlNumericLiteral step;
-  private final RangeType rangeType;
+  private final SqlNumericLiteral steps;
+  private final ScaleType scaleType;
 
   //~ Constructors -----------------------------------------------------------
 
@@ -82,13 +81,13 @@ public class SqlGivenRange extends SqlCall {
       SqlParserPos pos,
       SqlNumericLiteral min,
       SqlNumericLiteral max,
-      SqlNumericLiteral step,
-      RangeType rangeType) {
+      SqlNumericLiteral steps,
+      ScaleType scaleType) {
     super(pos);
     this.min   = Objects.requireNonNull(min, "min");
     this.max = Objects.requireNonNull(max, "max");
-    this.step = step;
-    this.rangeType = Objects.requireNonNull(rangeType, "rangeType");
+    this.steps = steps;
+    this.scaleType = Objects.requireNonNull(scaleType, "scaleType");
   }
 
   //~ Methods ----------------------------------------------------------------
@@ -98,7 +97,7 @@ public class SqlGivenRange extends SqlCall {
   }
 
   @Override public List<SqlNode> getOperandList() {
-    return ImmutableList.of(min, max, step, rangeType.symbol(SqlParserPos.ZERO));
+    return ImmutableList.of(min, max, steps, scaleType.symbol(SqlParserPos.ZERO));
   }
 
   /** Returns the min value. */
@@ -112,31 +111,30 @@ public class SqlGivenRange extends SqlCall {
   }
 
   /** Returns the max value. */
-  public SqlNumericLiteral getStep() {
-    return step;
+  public SqlNumericLiteral getSteps() {
+    return steps;
   }
 
   /** Returns the given type. */
-  public RangeType getRangeType() {
-    return rangeType;
+  public ScaleType getScaleType() {
+    return scaleType;
   }
 
   @Override public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
-    writer.keyword("GIVEN_RANGE");
+    writer.keyword("RANGE");
     SqlWriter.Frame frame = writer.startList("(", ")");
     writer.sep(",");
     min.unparse(writer, leftPrec, rightPrec);
     writer.sep(",");
     max.unparse(writer, leftPrec, rightPrec);
-    if (step != null) {
+    if (steps != null) {
       writer.sep(",");
-      step.unparse(writer, leftPrec, rightPrec);
+      steps.unparse(writer, leftPrec, rightPrec);
+    }
+    if (scaleType != ScaleType.AUTO) {
+      writer.sep(",");
+      writer.keyword(scaleType.toString());
     }
     writer.endList(frame);
-    if (rangeType != RangeType.AUTO) {
-      writer.keyword("SCALE");
-      writer.keyword("=");
-      writer.keyword(rangeType.toString());
-    }
   }
 }

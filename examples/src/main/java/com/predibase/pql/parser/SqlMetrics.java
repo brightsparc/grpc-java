@@ -22,6 +22,7 @@ import org.apache.calcite.util.*;
 import org.checkerframework.dataflow.qual.*;
 
 import java.util.*;
+import java.util.stream.*;
 
 /**
  * A <code>SqlShowMetrics</code> is a node of a parse tree which represents
@@ -48,7 +49,7 @@ public class SqlMetrics extends SqlCall {
 
   public final SqlNodeList metricList;
   public final SqlNodeList targetList;
-  public final SqlNodeList modelList;
+  public final SqlNodeList fromList;
   public final MetricsType metricsType;
 
   //~ Constructors -----------------------------------------------------------
@@ -58,12 +59,12 @@ public class SqlMetrics extends SqlCall {
                         MetricsType metricsType,
                         SqlNodeList metricList,
                         SqlNodeList targetList,
-                        SqlNodeList modelList) {
+                        SqlNodeList fromList) {
     super(pos);
     this.metricsType = metricsType;
     this.metricList = Objects.requireNonNull(metricList, "metricList");
     this.targetList = targetList;
-    this.modelList = Objects.requireNonNull(modelList, "modelList");
+    this.fromList = Objects.requireNonNull(fromList, "fromList");
   }
 
   //~ Methods ----------------------------------------------------------------
@@ -93,12 +94,24 @@ public class SqlMetrics extends SqlCall {
   }
 
   @Pure
-  public final SqlNodeList getModelList() {
-    return modelList;
+  public final SqlNodeList getFromList() {
+    return fromList;
+  }
+
+  /** Return the list of dataset refs in from list. */
+  public List<SqlDatasetRef> getDatasetList() {
+    return getFromList().stream().filter(f -> f instanceof SqlDatasetRef)
+            .map(f-> (SqlDatasetRef) f).collect(Collectors.toList());
+  }
+
+  /** Return the list of model refs in from list. */
+  public List<SqlModelRef> getModelList() {
+    return getFromList().stream().filter(f -> f instanceof SqlModelRef)
+            .map(f-> (SqlModelRef) f).collect(Collectors.toList());
   }
 
   @Override public List<SqlNode> getOperandList() {
-    return ImmutableNullableList.of(metricsType.symbol(SqlParserPos.ZERO), metricList, modelList);
+    return ImmutableNullableList.of(metricsType.symbol(SqlParserPos.ZERO), metricList, fromList);
   }
 
   @Override public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
@@ -122,12 +135,19 @@ public class SqlMetrics extends SqlCall {
         writer.endList(targetFrame);
       }
     }
-    writer.keyword("USING");
-    if (modelList.size() == 1) {
-      modelList.unparse(writer, leftPrec, rightPrec);
-    } else {
+    if (getFromList().size() > 0) {
+      writer.keyword("FROM");
       SqlWriter.Frame modelFrame = writer.startList("(", ")");
-      modelList.unparse(writer, leftPrec, rightPrec);
+      // Write datasets first
+      if (getDatasetList().size() > 0) {
+        writer.keyword("DATASET");
+        getDatasetList().forEach(ds -> ds.unparse(writer, leftPrec, rightPrec));
+      }
+      // Write models second
+      if (getModelList().size() > 0) {
+        writer.keyword("MODEL");
+        getModelList().forEach(ds -> ds.unparse(writer, leftPrec, rightPrec));
+      }
       writer.endList(modelFrame);
     }
   }

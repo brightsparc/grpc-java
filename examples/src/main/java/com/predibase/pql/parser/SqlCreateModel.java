@@ -32,9 +32,10 @@ public class SqlCreateModel extends SqlCreate {
   public final SqlNode config;
   public final SqlNodeList featureList;
   public final SqlNodeList targetList;
-  public final SqlNodeList preprocessing;
+  public final SqlNodeList processor;
   public final SqlNodeList trainer;
   public final SqlNodeList combiner;
+  public final SqlNodeList hyperopt;
   public final SqlDatasetRef sourceRef;
   public final SqlNode query;
 
@@ -50,9 +51,10 @@ public class SqlCreateModel extends SqlCreate {
     // TODO: Based on config, dynamically set the following properties
     this.featureList = null;
     this.targetList = null;
-    this.preprocessing = null;
+    this.processor = null;
     this.combiner = null;
     this.trainer = null;
+    this.hyperopt = null;
     this.sourceRef = sourceRef;
     this.query = query;
   }
@@ -60,23 +62,24 @@ public class SqlCreateModel extends SqlCreate {
   /** Creates a SqlCreateModel with sql parameters. */
   public SqlCreateModel(SqlParserPos pos, boolean replace, boolean ifNotExists,
       SqlIdentifier name, SqlNodeList featureList, SqlNodeList targetList,
-      SqlNodeList preprocessing, SqlNodeList combiner, SqlNodeList trainer,
+      SqlNodeList processor, SqlNodeList combiner, SqlNodeList trainer, SqlNodeList hyperopt,
       SqlDatasetRef sourceRef, SqlNode query) {
     super(OPERATOR, pos, replace, ifNotExists);
     this.name = Objects.requireNonNull(name, "name");
     this.config = null;
     this.featureList = Objects.requireNonNull(featureList, "featureList");
     this.targetList = Objects.requireNonNull(targetList, "targetList");
-    this.preprocessing = preprocessing;
+    this.processor = processor;
     this.combiner = combiner;
     this.trainer = trainer;
+    this.hyperopt = hyperopt;
     this.sourceRef = sourceRef;
     this.query = query;
   }
 
   @Override public List<SqlNode> getOperandList() {
     return ImmutableNullableList.of(name, config,
-        targetList, featureList, preprocessing, combiner, trainer, sourceRef, query);
+        targetList, featureList, processor, combiner, trainer, hyperopt, sourceRef, query);
   }
 
   @Pure
@@ -84,7 +87,7 @@ public class SqlCreateModel extends SqlCreate {
     return name;
   }
 
-  /** Returns the given name as a type. */
+  /** Returns the name as a type. */
   public <T extends Object> T getNameAs(Class<T> clazz) {
     if (clazz.isInstance(name)) {
       return clazz.cast(name);
@@ -121,8 +124,8 @@ public class SqlCreateModel extends SqlCreate {
   }
 
   @Pure
-  public final List<SqlGivenItem> getPreprocessing() {
-    return getGivenItems(preprocessing);
+  public final List<SqlGivenItem> getProcessor() {
+    return getGivenItems(processor);
   }
 
   @Pure
@@ -133,6 +136,11 @@ public class SqlCreateModel extends SqlCreate {
   @Pure
   public final List<SqlGivenItem> getTrainer() {
     return getGivenItems(trainer);
+  }
+
+  @Pure
+  public final List<SqlGivenItem> getHyperopt() {
+    return getGivenItems(hyperopt);
   }
 
   /** Adds items and nested items. */
@@ -198,13 +206,13 @@ public class SqlCreateModel extends SqlCreate {
         targetList.unparse(writer, leftPrec, rightPrec);
         writer.endList(frame);
       }
-      if (preprocessing != null || combiner != null || trainer != null) {
+      if (processor != null || combiner != null || trainer != null) {
         writer.keyword("WITH");
-        if (preprocessing != null) {
+        if (processor != null) {
           writer.newlineAndIndent();
-          writer.keyword("PREPROCESSING");
+          writer.keyword("PROCESSOR");
           SqlWriter.Frame frame = writer.startList("(", ")");
-          preprocessing.unparse(writer, leftPrec, rightPrec);
+          processor.unparse(writer, leftPrec, rightPrec);
           writer.endList(frame);
         }
         if (combiner != null) {
@@ -219,6 +227,13 @@ public class SqlCreateModel extends SqlCreate {
           writer.keyword("TRAINER");
           SqlWriter.Frame frame = writer.startList("(", ")");
           trainer.unparse(writer, leftPrec, rightPrec);
+          writer.endList(frame);
+        }
+        if (hyperopt != null) {
+          writer.newlineAndIndent();
+          writer.keyword("HYPEROPT");
+          SqlWriter.Frame frame = writer.startList("(", ")");
+          hyperopt.unparse(writer, leftPrec, rightPrec);
           writer.endList(frame);
         }
       }

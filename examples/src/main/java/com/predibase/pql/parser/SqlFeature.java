@@ -22,7 +22,6 @@ import org.apache.calcite.sql.parser.*;
 import org.checkerframework.checker.nullness.qual.*;
 
 import java.util.*;
-import java.util.stream.*;
 
 import static java.util.Objects.*;
 
@@ -45,7 +44,7 @@ import static java.util.Objects.*;
  */
 public class SqlFeature extends SqlCall {
   private static final SqlOperator OPERATOR =
-      new SqlSpecialOperator("FEATURE", SqlKind.HINT) {
+      new SqlSpecialOperator("FEATURE", SqlKind.OTHER) {
         @Override public SqlCall createCall(
             @Nullable SqlLiteral functionQualifier,
             SqlParserPos pos,
@@ -55,7 +54,8 @@ public class SqlFeature extends SqlCall {
               ((SqlLiteral) requireNonNull(operands[1], "featureType"))
                   .getValueAs(FeatureType.class),
               (SqlNodeList) operands[2],
-              (SqlNodeList) operands[3]);
+              (SqlNodeList) operands[3],
+              (SqlNodeList) operands[4]);
         }
       };
 
@@ -119,9 +119,10 @@ public class SqlFeature extends SqlCall {
      */
     DATE,
     /**
-     * GEOMETRY is a indexing system for representing geospatial data.
+     * H3 is a indexing system for representing geospatial data.
+     * For more details about it refer to: https://eng.uber.com/h3/.
      */
-    GEOMETRY,
+    H3,
     /**
      * Vector features allow to provide an ordered set of numerical values all at once.
      */
@@ -132,6 +133,7 @@ public class SqlFeature extends SqlCall {
 
   private final SqlIdentifier name;
   private final FeatureType featureType;
+  private final SqlNodeList processor;
   private final SqlNodeList encoder;
   private final SqlNodeList decoder;
 
@@ -146,15 +148,12 @@ public class SqlFeature extends SqlCall {
         ImmutableList.<String>builder().addAll(parent.names).add(feature.name()).build(), pos);
   }
 
-  public SqlFeature(
-      SqlParserPos pos,
-      SqlIdentifier name,
-      FeatureType featureType,
-      SqlNodeList encoder,
-      SqlNodeList decoder) {
+  public SqlFeature(SqlParserPos pos, SqlIdentifier name, FeatureType featureType,
+      SqlNodeList processor,  SqlNodeList encoder, SqlNodeList decoder) {
     super(pos);
     this.name = Objects.requireNonNull(name, "name");
     this.featureType = Objects.requireNonNull(featureType, "featureType");
+    this.processor = processor;
     this.encoder = encoder;
     this.decoder = decoder;
   }
@@ -166,7 +165,8 @@ public class SqlFeature extends SqlCall {
   }
 
   @Override public List<SqlNode> getOperandList() {
-    return ImmutableList.of(name, featureType.symbol(SqlParserPos.ZERO), encoder, decoder);
+    return ImmutableList.of(name, featureType.symbol(SqlParserPos.ZERO),
+        processor, encoder, decoder);
   }
 
   /** Returns the name. */
@@ -195,45 +195,64 @@ public class SqlFeature extends SqlCall {
   }
 
   /** Returns the encoder. */
+  public List<SqlGivenItem> getProcessor() {
+    return getGivenItems(processor);
+  }
+
+  /** Returns the encoder. */
   public List<SqlGivenItem> getEncoder() {
-    if (encoder != null) {
-      return encoder.stream().map(e -> (SqlGivenItem) e).collect(Collectors.toList());
-    }
-    return new ArrayList<>();
+    return getGivenItems(encoder);
   }
 
   /** Returns the decoder. */
   public List<SqlGivenItem> getDecoder() {
-    if (decoder != null) {
-      return decoder.stream().map(e -> (SqlGivenItem) e).collect(Collectors.toList());
+    return getGivenItems(decoder);
+  }
+
+  /** Adds items and nested items. */
+  private List<SqlGivenItem> getGivenItems(SqlNodeList items) {
+    ArrayList<SqlGivenItem> list = new ArrayList<>();
+    if (items != null) {
+      items.forEach(i -> {
+        if (i instanceof  SqlGivenItem) {
+          list.add((SqlGivenItem) i);
+        } else if (i instanceof SqlBasicCall) {
+          // Named argument
+          SqlNode left = ((SqlBasicCall) i).getOperandList().get(0);
+          if (left instanceof  SqlNodeList) {
+            list.addAll(getGivenItems((SqlNodeList) left));
+          }
+        }
+      });
     }
-    return new ArrayList<>();
+    return list;
   }
 
   @Override public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
     name.unparse(writer, leftPrec, rightPrec);
     writer.keyword(featureType.toString());
-    if (encoder != null || decoder != null) {
+    if (processor != null || encoder != null || decoder != null) {
       writer.keyword("WITH");
+    }
+    // Should we write processor first
+    if (processor != null) {
+      writer.keyword("PROCESSOR");
+      SqlWriter.Frame frame = writer.startList("(", ")");
+      processor.unparse(writer, leftPrec, rightPrec);
+      writer.endList(frame);
     }
     if (encoder != null) {
       writer.keyword("ENCODER");
       // If is identifier write out name prefix
       SqlWriter.Frame frame = writer.startList("(", ")");
-      encoder.forEach(e -> {
-        writer.sep(",");
-        e.unparse(writer, leftPrec, rightPrec);
-      });
+      encoder.unparse(writer, leftPrec, rightPrec);
       writer.endList(frame);
     }
     if (decoder != null) {
       writer.keyword("DECODER");
       // If is identifier write out name prefix
       SqlWriter.Frame frame = writer.startList("(", ")");
-      decoder.forEach(d -> {
-        writer.sep(",");
-        d.unparse(writer, leftPrec, rightPrec);
-      });
+      decoder.unparse(writer, leftPrec, rightPrec);
       writer.endList(frame);
     }
   }

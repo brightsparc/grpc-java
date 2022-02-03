@@ -708,100 +708,127 @@ public interface ExtensionSqlParserImplConstants {
   int ENABLED = 702;
   int DATASET = 703;
   int DATASET_FORMAT = 704;
-  int SCHEDULE = 705;
-  int CRON = 706;
-  int MODEL = 707;
-  int TARGET = 708;
-  int AUTO = 709;
-  int LOG = 710;
-  int LINEAR = 711;
-  int CONFIG = 712;
-  int PREPROCESSING = 713;
-  int TRAINER = 714;
-  int COMBINER = 715;
-  int ENCODER = 716;
-  int DECODER = 717;
-  int CATEGORY = 718;
-  int BAG = 719;
-  int TEXT = 720;
-  int TIMESERIES = 721;
-  int AUDIO = 722;
-  int IMAGE = 723;
-  int H3 = 724;
-  int VECTOR = 725;
-  int PREDICT = 726;
-  int EVALUATE = 727;
-  int GIVEN = 728;
-  int GIVEN_RANGE = 729;
-  int EXPLANATION = 730;
-  int CONFIDENCE = 731;
-  int METRICS = 732;
-  int PLOT = 733;
-  int UNSIGNED_INTEGER_LITERAL = 734;
-  int APPROX_NUMERIC_LITERAL = 735;
-  int DECIMAL_NUMERIC_LITERAL = 736;
-  int EXPONENT = 737;
-  int HEXDIGIT = 738;
-  int WHITESPACE = 739;
-  int BINARY_STRING_LITERAL = 740;
-  int QUOTED_STRING = 741;
-  int PREFIXED_STRING_LITERAL = 742;
-  int UNICODE_STRING_LITERAL = 743;
-  int CHARSETNAME = 744;
-  int BIG_QUERY_DOUBLE_QUOTED_STRING = 745;
-  int BIG_QUERY_QUOTED_STRING = 746;
-  int UNICODE_QUOTED_ESCAPE_CHAR = 747;
-  int LPAREN = 748;
-  int RPAREN = 749;
-  int LBRACE_D = 750;
-  int LBRACE_T = 751;
-  int LBRACE_TS = 752;
-  int LBRACE_FN = 753;
-  int LBRACE = 754;
-  int RBRACE = 755;
-  int LBRACKET = 756;
-  int RBRACKET = 757;
-  int SEMICOLON = 758;
-  int DOT = 759;
-  int COMMA = 760;
-  int EQ = 761;
-  int GT = 762;
-  int LT = 763;
-  int HOOK = 764;
-  int COLON = 765;
-  int LE = 766;
-  int GE = 767;
-  int NE = 768;
-  int NE2 = 769;
-  int PLUS = 770;
-  int MINUS = 771;
-  int STAR = 772;
-  int SLASH = 773;
-  int PERCENT_REMAINDER = 774;
-  int CONCAT = 775;
-  int NAMED_ARGUMENT_ASSIGNMENT = 776;
-  int DOUBLE_PERIOD = 777;
-  int QUOTE = 778;
-  int DOUBLE_QUOTE = 779;
-  int VERTICAL_BAR = 780;
-  int CARET = 781;
-  int DOLLAR = 782;
-  int HINT_BEG = 788;
-  int COMMENT_END = 789;
-  int SINGLE_LINE_COMMENT = 792;
-  int FORMAL_COMMENT = 793;
-  int MULTI_LINE_COMMENT = 794;
-  int BRACKET_QUOTED_IDENTIFIER = 796;
-  int QUOTED_IDENTIFIER = 797;
-  int BACK_QUOTED_IDENTIFIER = 798;
-  int BIG_QUERY_BACK_QUOTED_IDENTIFIER = 799;
-  int HYPHENATED_IDENTIFIER = 800;
-  int IDENTIFIER = 801;
-  int COLLATION_ID = 802;
-  int UNICODE_QUOTED_IDENTIFIER = 803;
-  int LETTER = 804;
-  int DIGIT = 805;
-  int BEL = 806;
+  int DATASETS = 705;
+  int SCHEDULE = 706;
+  int CRON = 707;
+  int MODEL = 708;
+  int MODELS = 709;
+  int TARGET = 710;
+  int STEP = 711;
+  int AUTO = 712;
+  int LINEAR = 713;
+  int LOG = 714;
+  int CONFIG = 715;
+  int PROCESSOR = 716;
+  int TRAINER = 717;
+  int COMBINER = 718;
+  int HYPEROPT = 719;
+  int ENCODER = 720;
+  int DECODER = 721;
+  int CATEGORY = 722;
+  int BAG = 723;
+  int TEXT = 724;
+  int TIMESERIES = 725;
+  int AUDIO = 726;
+  int IMAGE = 727;
+  int H3 = 728;
+  int VECTOR = 729;
+  int ENGINE = 730;
+  int ENGINES = 731;
+  int ACCOUNTADMIN = 732;
+  int SYSADMIN = 733;
+  int OWN = 734;
+  int GRANTS = 735;
+  int PREDICT = 736;
+  int EVALUATE = 737;
+  int GIVEN = 738;
+  int EXPLANATION = 739;
+  int CONFIDENCE = 740;
+  int METRICS = 741;
+  int PLOT = 742;
+  int VISUALIZE = 743;
+  int VISUALIZATION = 744;
+  int CONFUSION_MATRIX = 745;
+  int ROC_CURVES = 746;
+  int RESIDUALS = 747;
+  int LEARNING_CURVES = 748;
+  int COMPARE_PERFORMANCE = 749;
+  int COMPARE_CLASSIFIERS_PREDICTIONS = 750;
+  int COMPARE_CLASSIFIERS_PREDICTIONS_DISTRIBUTION = 751;
+  int CONFIDENCE_THRESHOLDING = 752;
+  int CONFIDENCE_THRESHOLDING_2THRESHOLDS_2D = 753;
+  int CONFIDENCE_THRESHOLDING_2THRESHOLDS_3D = 754;
+  int CONFIDENCE_THRESHOLDING_DATA_VS_ACC = 755;
+  int BINARY_THRESHOLD_VS_METRIC = 756;
+  int CALIBRATION_1_VS_ALL = 757;
+  int CALIBRATION_MULTICLASS = 758;
+  int FREQUENCY_VS_F1 = 759;
+  int HYPEROPT_REPORT = 760;
+  int UNSIGNED_INTEGER_LITERAL = 761;
+  int APPROX_NUMERIC_LITERAL = 762;
+  int DECIMAL_NUMERIC_LITERAL = 763;
+  int EXPONENT = 764;
+  int HEXDIGIT = 765;
+  int WHITESPACE = 766;
+  int BINARY_STRING_LITERAL = 767;
+  int QUOTED_STRING = 768;
+  int PREFIXED_STRING_LITERAL = 769;
+  int UNICODE_STRING_LITERAL = 770;
+  int CHARSETNAME = 771;
+  int BIG_QUERY_DOUBLE_QUOTED_STRING = 772;
+  int BIG_QUERY_QUOTED_STRING = 773;
+  int UNICODE_QUOTED_ESCAPE_CHAR = 774;
+  int LPAREN = 775;
+  int RPAREN = 776;
+  int LBRACE_D = 777;
+  int LBRACE_T = 778;
+  int LBRACE_TS = 779;
+  int LBRACE_FN = 780;
+  int LBRACE = 781;
+  int RBRACE = 782;
+  int LBRACKET = 783;
+  int RBRACKET = 784;
+  int SEMICOLON = 785;
+  int DOT = 786;
+  int COMMA = 787;
+  int EQ = 788;
+  int GT = 789;
+  int LT = 790;
+  int HOOK = 791;
+  int COLON = 792;
+  int LE = 793;
+  int GE = 794;
+  int NE = 795;
+  int NE2 = 796;
+  int PLUS = 797;
+  int MINUS = 798;
+  int STAR = 799;
+  int SLASH = 800;
+  int PERCENT_REMAINDER = 801;
+  int CONCAT = 802;
+  int NAMED_ARGUMENT_ASSIGNMENT = 803;
+  int DOUBLE_PERIOD = 804;
+  int QUOTE = 805;
+  int DOUBLE_QUOTE = 806;
+  int VERTICAL_BAR = 807;
+  int CARET = 808;
+  int DOLLAR = 809;
+  int HINT_BEG = 815;
+  int COMMENT_END = 816;
+  int SINGLE_LINE_COMMENT = 819;
+  int FORMAL_COMMENT = 820;
+  int MULTI_LINE_COMMENT = 821;
+  int BRACKET_QUOTED_IDENTIFIER = 823;
+  int QUOTED_IDENTIFIER = 824;
+  int BACK_QUOTED_IDENTIFIER = 825;
+  int BIG_QUERY_BACK_QUOTED_IDENTIFIER = 826;
+  int HYPHENATED_IDENTIFIER = 827;
+  int IDENTIFIER = 828;
+  int COLLATION_ID = 829;
+  int UNICODE_QUOTED_IDENTIFIER = 830;
+  int LETTER = 831;
+  int DIGIT = 832;
+  int BEL = 833;
 
   int DEFAULT = 0;
   int DQID = 1;
@@ -1517,17 +1544,21 @@ public interface ExtensionSqlParserImplConstants {
     "\"ENABLED\"",
     "\"DATASET\"",
     "\"DATASET_FORMAT\"",
+    "\"DATASETS\"",
     "\"SCHEDULE\"",
     "\"CRON\"",
     "\"MODEL\"",
+    "\"MODELS\"",
     "\"TARGET\"",
+    "\"STEP\"",
     "\"AUTO\"",
-    "\"LOG\"",
     "\"LINEAR\"",
+    "\"LOG\"",
     "\"CONFIG\"",
-    "\"PREPROCESSING\"",
+    "\"PROCESSOR\"",
     "\"TRAINER\"",
     "\"COMBINER\"",
+    "\"HYPEROPT\"",
     "\"ENCODER\"",
     "\"DECODER\"",
     "\"CATEGORY\"",
@@ -1538,14 +1569,37 @@ public interface ExtensionSqlParserImplConstants {
     "\"IMAGE\"",
     "\"H3\"",
     "\"VECTOR\"",
+    "\"ENGINE\"",
+    "\"ENGINES\"",
+    "\"ACCOUNTADMIN\"",
+    "\"SYSADMIN\"",
+    "\"OWN\"",
+    "\"GRANTS\"",
     "\"PREDICT\"",
     "\"EVALUATE\"",
     "\"GIVEN\"",
-    "\"GIVEN_RANGE\"",
     "\"EXPLANATION\"",
     "\"CONFIDENCE\"",
     "\"METRICS\"",
     "\"PLOT\"",
+    "\"VISUALIZE\"",
+    "\"VISUALIZATION\"",
+    "\"CONFUSION_MATRIX\"",
+    "\"ROC_CURVES\"",
+    "\"RESIDUALS\"",
+    "\"LEARNING_CURVES\"",
+    "\"COMPARE_PERFORMANCE\"",
+    "\"COMPARE_CLASSIFIERS_PREDICTIONS\"",
+    "\"COMPARE_CLASSIFIERS_PREDICTIONS_DISTRIBUTION\"",
+    "\"CONFIDENCE_THRESHOLDING\"",
+    "\"CONFIDENCE_THRESHOLDING_2THRESHOLDS_2D\"",
+    "\"CONFIDENCE_THRESHOLDING_2THRESHOLDS_3D\"",
+    "\"CONFIDENCE_THRESHOLDING_DATA_VS_ACC\"",
+    "\"BINARY_THRESHOLD_VS_METRIC\"",
+    "\"CALIBRATION_1_VS_ALL\"",
+    "\"CALIBRATION_MULTICLASS\"",
+    "\"FREQUENCY_VS_F1\"",
+    "\"HYPEROPT_REPORT\"",
     "<UNSIGNED_INTEGER_LITERAL>",
     "<APPROX_NUMERIC_LITERAL>",
     "<DECIMAL_NUMERIC_LITERAL>",
@@ -1602,12 +1656,12 @@ public interface ExtensionSqlParserImplConstants {
     "\"\\f\"",
     "\"/*+\"",
     "\"*/\"",
-    "<token of kind 790>",
+    "<token of kind 817>",
     "\"/*\"",
     "<SINGLE_LINE_COMMENT>",
     "<FORMAL_COMMENT>",
     "<MULTI_LINE_COMMENT>",
-    "<token of kind 795>",
+    "<token of kind 822>",
     "<BRACKET_QUOTED_IDENTIFIER>",
     "<QUOTED_IDENTIFIER>",
     "<BACK_QUOTED_IDENTIFIER>",

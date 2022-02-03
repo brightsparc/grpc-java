@@ -84,7 +84,11 @@ public class SqlPredict extends SqlCall {
     /**
      * With confidence.
      */
-    CONFIDENCE
+    CONFIDENCE,
+    /**
+     * With visualization.
+     */
+    VISUALIZATION,
   }
 
   //~ Instance fields --------------------------------------------------------
@@ -92,6 +96,8 @@ public class SqlPredict extends SqlCall {
   public final PredictType predictType;
   public final SqlNodeList targetList;
   public final WithQualifier withQualifier;
+  public final SqlVisualize.VisualizeType visualizeType;
+  public final SqlNodeList visualizeFormat;
   public final SqlNode into;
   public final SqlModelRef model;
   public final SqlNodeList given;
@@ -103,28 +109,26 @@ public class SqlPredict extends SqlCall {
                     PredictType predictType,
                     SqlNodeList targetList,
                     WithQualifier withQualifier,
+                    SqlVisualize.VisualizeType visualizeType,
+                    SqlNodeList visualizeFormat,
                     SqlNode into,
                     SqlModelRef model,
                     SqlNodeList given) {
     super(pos);
-
     this.predictType =  Objects.requireNonNull(predictType, "predictType");
-
     this.targetList = Objects.requireNonNull(targetList, "targetList");
-
     this.withQualifier = Objects.requireNonNull(withQualifier, "withQualifier");
-
-    this.into = into; // may be null
-
-    this.model = model; // may be null
-
+    this.visualizeType = visualizeType;
+    this.visualizeFormat = visualizeFormat;
+    this.into = into;
+    this.model = model;
     this.given = Objects.requireNonNull(given, "given");
   }
 
   //~ Methods ----------------------------------------------------------------
 
   @Override public SqlOperator getOperator() {
-    return new SqlSpecialOperator(predictType.toString(), SqlKind.OTHER);
+    return new SqlSpecialOperator(predictType.name(), SqlKind.OTHER);
   }
 
   @Override public SqlKind getKind() {
@@ -139,6 +143,16 @@ public class SqlPredict extends SqlCall {
   @Pure
   public final WithQualifier getWithQualifier() {
     return withQualifier;
+  }
+
+  @Pure
+  public final SqlVisualize.VisualizeType getVisualizationType() {
+    return visualizeType;
+  }
+
+  @Pure
+  public final SqlNodeList getVisualizeFormat() {
+    return visualizeFormat;
   }
 
   @Pure
@@ -187,7 +201,8 @@ public class SqlPredict extends SqlCall {
   @Override public List<SqlNode> getOperandList() {
     // Return operand list with version as numeric literal
     return ImmutableNullableList.of(predictType.symbol(SqlParserPos.ZERO), targetList,
-        withQualifier.symbol(SqlParserPos.ZERO), into, model, given);
+        withQualifier.symbol(SqlParserPos.ZERO), visualizeType.symbol(SqlParserPos.ZERO),
+        visualizeFormat, into, model, given);
   }
 
   @Override public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
@@ -219,6 +234,9 @@ public class SqlPredict extends SqlCall {
     if (withQualifier != WithQualifier.EMPTY) {
       writer.keyword("WITH");
       writer.keyword(withQualifier.toString());
+      if (visualizeFormat != null) {
+        visualizeFormat.unparse(writer, leftPrec, rightPrec);
+      }
     }
 
     if (into != null) {
