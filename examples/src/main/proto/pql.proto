@@ -15,6 +15,7 @@ syntax = "proto3";
 
 import "google/protobuf/any.proto";
 
+option go_package = "predibase.com/predibase-pql/pql";
 option java_multiple_files = true;
 option java_package = "com.predibase.pql.api";
 option java_outer_classname = "PqlProto";
@@ -132,12 +133,13 @@ message CreateModelClause {
   optional string query = 4;
 }
 
-message ModelConfig { // This is the structured model config object
-  repeated Feature inputFeature = 1;
-  repeated Feature outputFeature = 2;
+message ModelConfig { // Use snake case for transforming model config
+  repeated Feature input_features = 1;
+  repeated Feature output_features = 2;
   map<string, GivenItem> processor = 3;
   map<string, GivenItem> combiner = 4;
   map<string, GivenItem> trainer = 5;
+  map<string, GivenItem> hyperopt = 6; // TODO: Add hyperopt settings that also include RANGE, ARRAY values
 }
 
 message Feature {
@@ -186,7 +188,7 @@ message PredictClause {
 }
 
 message GivenItem {
-  string name = 1;
+  //string name = 1; // Exclude name because part of dictionary
   enum GivenType {
     UNDEFINED = 0;
     IDENTIFIER = 1;
@@ -194,15 +196,28 @@ message GivenItem {
     NUMERIC = 3;
     STRING = 4;
     ARRAY = 5;
-    RANGE = 6;
+    SAMPLE_ARRAY = 6;
+    RANGE_INT = 7;
+    RANGE_REAL = 8;
+  }
+  enum SampleType {
+    SAMPLE_AUTO = 0;
+    SAMPLE_CHOICE = 1;
+    SAMPLE_GRID = 2;
+  }
+  enum ScaleType {
+    AUTO = 0;
+    LOG = 1;
+    LINEAR = 2;
   }
   GivenType type = 2;
-  // TODO: Change this to ANY type
   repeated string identifierValue = 3;
   repeated bool boolValue = 4;
   repeated double numericValue = 5;
   repeated string stringValue = 6;
   optional double minValue = 7;
   optional double maxValue = 8;
-  optional double stepsValue = 9;
+  optional double stepValue = 9; // Use for step and steps
+  optional ScaleType scaleType = 10;
+  optional SampleType sampleType = 11;
 }

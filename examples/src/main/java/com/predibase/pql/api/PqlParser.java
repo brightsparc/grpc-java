@@ -230,11 +230,12 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
             List<String> targets = node.getTargetList().stream().map(t ->
                     parseIdentifier(t)).collect(Collectors.toList());
             node.getFeatureList().forEach(f -> {
+                // TODO: Check if feature is or ARRAY or RANGE, and if so, add to hyperopt instead of input/output
                 Feature feature = parseFeature(f);
                 if (targets.contains(feature.getName())) {
-                    config.addOutputFeature(feature);
+                    config.addOutputFeatures(feature);
                 } else {
-                    config.addInputFeature(feature);
+                    config.addInputFeatures(feature);
                 }
             });
             // Add preprocessing
@@ -246,7 +247,10 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
             // Add combiner
             node.getTrainer().forEach(item ->
                     config.putTrainer(item.getNestedNameAs(String.class), parseGivenItem(item)));
-            // Set the config from the builder
+            // Add hyperopt
+            node.getHyperopt().forEach(item ->
+                    config.putHyperopt(item.getNestedNameAs(String.class), parseGivenItem(item)));
+            // Pack the config
             builder.setConfig(Any.pack(config.build()));
         }
         if (node.getSourceRef() != null) {
@@ -266,6 +270,7 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
         Feature.Builder builder = Feature.newBuilder()
                 .setName(feature.getNameAs(String.class))
                 .setType(Feature.FeatureType.valueOf(feature.getGivenType().toString()));
+        // NOTE: Try using a ANY parser for feature process and see what happens with serializer
         feature.getProcessor().forEach(item ->
                 builder.putProcessor(item.getNestedNameAs(String.class), parseGivenItem(item)));
         feature.getEncoder().forEach(item ->
@@ -313,7 +318,7 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
     private GivenItem parseGivenItem(SqlGivenItem item) throws UnsupportedOperationException {
         // Get the node name and type
         GivenItem.Builder builder = GivenItem.newBuilder()
-                .setName(item.getNestedNameAs(String.class))
+                //.setName(item.getNestedNameAs(String.class))
                 .setType(GivenItem.GivenType.valueOf(item.getGivenType().toString()));
 
         // Get the value as target class
@@ -327,13 +332,22 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
             case STRING:
                 return builder.addStringValue(item.getValueAs(String.class)).build();
             case ARRAY:
-                SqlBasicCall arr = (SqlBasicCall) item.getValue();
+            case SAMPLE_ARRAY:
+                SqlBasicCall arr;
+                if (item.getValue() instanceof SqlSampleArray) {
+                    // TODO: Figure out a way to use getArrayValueAs
+                    SqlSampleArray sample = ((SqlSampleArray) item.getValue());
+                    builder.setSampleType(GivenItem.SampleType.valueOf(sample.getSampleType().toString()));
+                    arr = sample.getArray();
+                } else {
+                    arr = (SqlBasicCall) item.getValue();
+                }
                 arr.getOperandList().forEach(a -> {
                     if (a instanceof SqlNumericLiteral) {
                         SqlNumericLiteral arrItem = (SqlNumericLiteral) a;
                         builder.addNumericValue(arrItem.getValueAs(Double.class));
                     } else if (a instanceof SqlLiteral) {
-                        SqlLiteral arrItem = (SqlLiteral) item.getValue();
+                        SqlLiteral arrItem = (SqlLiteral) a;
                         if (arrItem.getTypeName() == SqlTypeName.BOOLEAN) {
                             builder.addBoolValue(arrItem.getValueAs(Boolean.class));
                         } else {
@@ -345,12 +359,23 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
                     }
                 });
                 return builder.build();
-            case RANGE:
-                SqlGivenRange rng = (SqlGivenRange) item.getValue();
-                builder.setMinValue(rng.getMin().getValueAs(Double.class));
-                builder.setMaxValue(rng.getMax().getValueAs(Double.class));
-                if (rng.getSteps() != null) {
-                    builder.setStepsValue(rng.getSteps().getValueAs(Double.class));
+            case RANGE_INT:
+                SqlRangeInt ri = (SqlRangeInt) item.getValue();
+                builder.setMinValue(ri.getMin());
+                builder.setMaxValue(ri.getMax());
+                if (ri.getStep() > 0) {
+                    builder.setStepValue(ri.getStep());
+                }
+                return builder.build();
+            case RANGE_REAL:
+                SqlRangeReal rr = (SqlRangeReal) item.getValue();
+                builder.setMinValue(rr.getMin().getValueAs(Double.class));
+                builder.setMaxValue(rr.getMax().getValueAs(Double.class));
+                if (rr.getSteps() != null) {
+                    builder.setStepValue(rr.getSteps().getValueAs(Double.class));
+                }
+                if (rr.getScaleType() != SqlRangeReal.ScaleType.AUTO) {
+                    builder.setScaleType(GivenItem.ScaleType.valueOf(rr.getScaleType().toString()));
                 }
                 return builder.build();
             default:

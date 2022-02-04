@@ -23,6 +23,7 @@ import org.apache.calcite.sql.type.*;
 import org.checkerframework.checker.nullness.qual.*;
 
 import java.util.*;
+import java.util.stream.*;
 
 import static java.util.Objects.*;
 
@@ -83,13 +84,21 @@ public class SqlGivenItem extends SqlCall {
      */
     STRING,
     /**
-     * The give value is a set of numeric or string literals.
+     * The give value is an array of binary, numeric or string literals.
      */
     ARRAY,
     /**
-     * The given value is a range of numeric values specified by (min, max[, step]).
+     * The given value is an array of which we will sample from using a choice or grid search.
      */
-    RANGE
+    SAMPLE_ARRAY,
+    /**
+     * The given value is a range of integer values specified by (min, max[, step]).
+     */
+    RANGE_INT,
+    /**
+     * The given value is a range of real values specified by (min, max[, steps[, scale]]).
+     */
+    RANGE_REAL,
   }
 
   //~ Instance fields --------------------------------------------------------
@@ -193,6 +202,17 @@ public class SqlGivenItem extends SqlCall {
       return ((SqlNumericLiteral) value).getValueAs(clazz);
     }
     throw new AssertionError("cannot cast " + value + " as " + clazz);
+  }
+
+  /** Returns the given array value as a list of type. */
+  public <T extends Object> List<T> getArrayValueAs(Class<T> clazz) {
+    if (givenType == GivenType.ARRAY) {
+      return ((SqlCall) value).getOperandList().stream().map(value ->
+          ((SqlLiteral) value).getValueAs(clazz)).collect(Collectors.toList());
+    } else if (givenType == GivenType.SAMPLE_ARRAY) {
+      return ((SqlSampleArray) value).getArrayValueAs(clazz);
+    }
+    throw new AssertionError("cannot cast array " + value + " as " + clazz);
   }
 
   /** Returns the given type. */

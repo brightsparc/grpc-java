@@ -17,77 +17,48 @@
 package com.predibase.pql.parser;
 
 import com.google.common.collect.*;
+import org.apache.calcite.rel.type.*;
 import org.apache.calcite.sql.*;
 import org.apache.calcite.sql.parser.*;
 import org.checkerframework.checker.nullness.qual.*;
 
 import java.util.*;
 
-import static java.util.Objects.*;
-
 /**
- * A <code>SqlNumericRange</code> is a node of a parse tree which represents
+ * A <code>SqlRangeInt</code> is a node of a parse tree which represents
  * a sql given statement for the <code>SqlPredict</code> clause.
  *
- * <p>Basic given grammar is: sequence (min, max [, steps] [, log | linear]).
+ * <p>Basic given grammar is: <code>RANGE_INT(min, max [, step])</code>.
  */
-public class SqlGivenRange extends SqlCall {
+public class SqlRangeInt extends SqlCall {
   private static final SqlOperator OPERATOR =
-      new SqlSpecialOperator("RANGE", SqlKind.OTHER) {
+      new SqlSpecialOperator("RANGE_INT", SqlKind.OTHER) {
         @Override public SqlCall createCall(
             @Nullable SqlLiteral functionQualifier,
             SqlParserPos pos,
             @Nullable SqlNode... operands) {
-          return new SqlGivenRange(pos,
-              (SqlNumericLiteral) requireNonNull(operands[0], "min"),
-              (SqlNumericLiteral) requireNonNull(operands[1], "max"),
-              (SqlNumericLiteral) operands[2],
-              ((SqlLiteral) requireNonNull(operands[3], "scaleType"))
-                  .getValueAs(ScaleType.class));
+          return new SqlRangeInt(pos,
+              ((SqlLiteral) Objects.requireNonNull(operands[0], "min"))
+                  .getValueAs(Integer.class),
+              ((SqlLiteral) Objects.requireNonNull(operands[1], "max"))
+                  .getValueAs(Integer.class),
+              ((SqlLiteral) operands[2]).getValueAs(Integer.class));
         }
       };
 
-
-  //~ Enums ------------------------------------------------------------------
-
-  /**
-   * The scale type.
-   */
-  public enum ScaleType implements Symbolizable {
-     /**
-     * The scale is auto.
-     */
-    AUTO,
-    /**
-     * The scale is linear.
-     */
-    LINEAR,
-    /**
-     * The scale is log.
-     */
-    LOG
-  }
-
   //~ Instance fields --------------------------------------------------------
 
-  private final SqlNumericLiteral min;
-  private final SqlNumericLiteral max;
-  private final SqlNumericLiteral steps;
-  private final ScaleType scaleType;
+  private final int min;
+  private final int max;
+  private final int step;
 
   //~ Constructors -----------------------------------------------------------
 
-  public SqlGivenRange(
-      SqlParserPos pos,
-      SqlNumericLiteral min,
-      SqlNumericLiteral max,
-      SqlNumericLiteral steps,
-      ScaleType scaleType) {
+  public SqlRangeInt(SqlParserPos pos, Integer min, Integer max, Integer step) {
     super(pos);
     this.min   = Objects.requireNonNull(min, "min");
     this.max = Objects.requireNonNull(max, "max");
-    this.steps = steps;
-    this.scaleType = Objects.requireNonNull(scaleType, "scaleType");
+    this.step = step;
   }
 
   //~ Methods ----------------------------------------------------------------
@@ -97,43 +68,37 @@ public class SqlGivenRange extends SqlCall {
   }
 
   @Override public List<SqlNode> getOperandList() {
-    return ImmutableList.of(min, max, steps, scaleType.symbol(SqlParserPos.ZERO));
+    return ImmutableList.of(
+        SqlNumericLiteral.createExactNumeric(Integer.toString(min), SqlParserPos.ZERO),
+        SqlNumericLiteral.createExactNumeric(Integer.toString(max), SqlParserPos.ZERO),
+        SqlNumericLiteral.createExactNumeric(Integer.toString(step), SqlParserPos.ZERO));
   }
 
   /** Returns the min value. */
-  public SqlNumericLiteral getMin() {
+  public int getMin() {
     return min;
   }
 
   /** Returns the max value. */
-  public SqlNumericLiteral getMax() {
+  public int getMax() {
     return max;
   }
 
   /** Returns the max value. */
-  public SqlNumericLiteral getSteps() {
-    return steps;
-  }
-
-  /** Returns the given type. */
-  public ScaleType getScaleType() {
-    return scaleType;
+  public int getStep() {
+    return step;
   }
 
   @Override public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
-    writer.keyword("RANGE");
+    writer.print("RANGE_INT"); // print so no space before brackets
     SqlWriter.Frame frame = writer.startList("(", ")");
     writer.sep(",");
-    min.unparse(writer, leftPrec, rightPrec);
+    writer.print(min);
     writer.sep(",");
-    max.unparse(writer, leftPrec, rightPrec);
-    if (steps != null) {
+    writer.print(max);
+    if (step != RelDataType.PRECISION_NOT_SPECIFIED) {
       writer.sep(",");
-      steps.unparse(writer, leftPrec, rightPrec);
-    }
-    if (scaleType != ScaleType.AUTO) {
-      writer.sep(",");
-      writer.keyword(scaleType.toString());
+      writer.print(step);
     }
     writer.endList(frame);
   }

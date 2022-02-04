@@ -16,6 +16,7 @@
 
 package com.predibase.pql.api;
 
+import com.google.protobuf.*;
 import io.grpc.*;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
@@ -126,7 +127,7 @@ public class PqlServerTest {
    */
   @Test
   public void testPredictGivenItems() throws IOException {
-    String predictGiven = predictStmt + ", i=id, s='s', f=0.1, a=ARRAY[1,2], r=range(1,100,10)";
+    String predictGiven = predictStmt + ", i=id, s='s', f=0.1, a=ARRAY[1,2], r=range_int(1,100,10)";
     ParseResponse response = getStub().parse(ParseRequest.newBuilder().setStatement(predictGiven)
             .setTargetDialect(ParseRequest.TargetDialect.SNOWFLAKE).build());
 
@@ -137,7 +138,7 @@ public class PqlServerTest {
             "USING \"M\"\n" +
             "GIVEN (SELECT *\n" +
             "FROM \"S1\"), " +
-            "\"I\" = \"ID\", \"S\" = 's', \"F\" = 0.1, \"A\" = ARRAY[1, 2], \"R\" = RANGE (1, 100, 10)",
+            "\"I\" = \"ID\", \"S\" = 's', \"F\" = 0.1, \"A\" = ARRAY[1, 2], \"R\" = RANGE_INT(1, 100, 10)",
             response.getParsedSql());
     PredictClause predict = response.getClause().getPredictClause();
     // Verify we also have a select
@@ -153,10 +154,10 @@ public class PqlServerTest {
     assertEquals(GivenItem.GivenType.ARRAY, predict.getGivenList(3).getType());
     assertEquals(1, predict.getGivenList(3).getNumericValue(0), 0);
     assertEquals(2, predict.getGivenList(3).getNumericValue(1), 0);
-    assertEquals(GivenItem.GivenType.RANGE, predict.getGivenList(4).getType());
+    assertEquals(GivenItem.GivenType.RANGE_INT, predict.getGivenList(4).getType());
     assertEquals(1, predict.getGivenList(4).getMinValue(), 0);
     assertEquals(100, predict.getGivenList(4).getMaxValue(), 0);
-    assertEquals(10, predict.getGivenList(4).getStepsValue(), 0);
+    assertEquals(10, predict.getGivenList(4).getStepValue(), 0);
   }
 
   /**
@@ -340,14 +341,19 @@ public class PqlServerTest {
   @Test
   public void testCreateModelFromProperties() throws IOException {
     String statement = "create model m (\n"
-            + "n numeric encoder (x=y, y='1', a.b.c=.1), " // TODO: Change this to not support nested
-            + "b binary decoder (z=1), "
-            + "s set, " // DO we want to use this name given its meaning in SQL?
-            + "t text"
-            + ") "
-            + "processor ( force_split=true, split_probabilities=ARRAY[0.7, 0.1, 0.2] )"
-            + "combiner ( type='concat' ) "
-            + "trainer ( epoch=range(1, 100, 10, LINEAR) ) "
+            + "n numeric encoder (type=dense, fc_size=256, use_bias=true, loss.type=mean_squared_error), "
+            + "b binary decoder (dropout=0.2), "
+            + "s set, " // No encoder or decoder
+            + "t text processor (word_tokenizer='sparse'), " // preprocessor only
+            + "c category encoder (cell_type=sample_grid(ARRAY['rnn', 'gru', 'lstm'])) " // grid search
+            + ")\n"
+            + "with processor (force_split=true, "
+            + "split_probabilities=ARRAY[0.7, 0.1, 0.2], " // numeric array
+            + "text => (char_tokenizer='characters', level => (n=3)) " // level is dummy property
+            + ") " // end pre-processor
+            + "combiner (type='concat', num_fc_layers=range_int(1,4)) " // Int range
+            + "trainer (learning_rate=range_real(0.001, 0.1, 4, linear)) " // Real range with scale
+            + "hyperopt (goal='minimize', metric='loss', split='validation') " // Hyper opt settings
             + "target b "
             + "from ds";
     System.out.println(statement);
@@ -362,27 +368,45 @@ public class PqlServerTest {
     // Get config as ModelConfig class
     ModelConfig config = model.getConfig().unpack(ModelConfig.class);
     // Verify input features
-    assertEquals(3, config.getInputFeatureCount());
-    Feature i1 = config.getInputFeature(0);
+    assertEquals(4, config.getInputFeaturesCount());
+    Feature i1 = config.getInputFeatures(0);
     assertEquals(Feature.FeatureType.NUMERIC, i1.getType());
     assertEquals("N", i1.getName());
-    assertEquals(3, i1.getEncoderCount());
-    GivenItem i1e1 = i1.getEncoderOrDefault("X", null);
+    assertEquals(4, i1.getEncoderCount());
+    GivenItem i1e1 = i1.getEncoderOrDefault("TYPE", null);
     assertNotNull(i1e1);
     assertEquals(GivenItem.GivenType.IDENTIFIER, i1e1.getType());
-    assertEquals("Y", i1e1.getIdentifierValue(0));
+    assertEquals("DENSE", i1e1.getIdentifierValue(0));
+    // Skip verify set feature
+    // Verify input processor
+    Feature i3 = config.getInputFeatures(2);
+    assertEquals(Feature.FeatureType.TEXT, i3.getType());
+    assertEquals("T", i3.getName());
+    assertEquals(1, i3.getProcessorCount());
+    GivenItem i2p1 = i3.getProcessorOrDefault("WORD_TOKENIZER", null);
+    assertEquals("sparse", i2p1.getStringValue(0));
+    // Verify array sample
+    Feature i4 = config.getInputFeatures(3);
+    assertEquals(Feature.FeatureType.CATEGORY, i4.getType());
+    assertEquals("C", i4.getName());
+    GivenItem i4e1 = i4.getEncoderOrDefault("CELL_TYPE", null);
+    assertNotNull(i4e1);
+    assertEquals(GivenItem.GivenType.SAMPLE_ARRAY, i4e1.getType());
+    assertEquals("rnn", i4e1.getStringValue(0));
+    assertEquals("gru", i4e1.getStringValue(1));
+    assertEquals("lstm", i4e1.getStringValue(2));
     // Verify output features
-    assertEquals(1, config.getOutputFeatureCount());
-    Feature o1 = config.getOutputFeature(0);
+    assertEquals(1, config.getOutputFeaturesCount());
+    Feature o1 = config.getOutputFeatures(0);
     assertEquals(Feature.FeatureType.BINARY, o1.getType());
     assertEquals("B", o1.getName());
     assertEquals(1, o1.getDecoderCount());
-    GivenItem o1d1 = o1.getDecoderOrDefault("Z", null);
+    GivenItem o1d1 = o1.getDecoderOrDefault("DROPOUT", null);
     assertNotNull(o1d1);
     assertEquals(GivenItem.GivenType.NUMERIC, o1d1.getType());
-    assertEquals(1, o1d1.getNumericValue(0), 0);
+    assertEquals(0.2, o1d1.getNumericValue(0), 0);
     // Verify processing
-    assertEquals(2, config.getProcessorCount());
+    assertEquals(4, config.getProcessorCount());
     GivenItem p1 = config.getProcessorOrDefault("FORCE_SPLIT", null);
     assertNotNull(p1);
     assertEquals(GivenItem.GivenType.BINARY, p1.getType());
@@ -394,15 +418,16 @@ public class PqlServerTest {
     assertEquals(0.1, p2.getNumericValue(1), 0);
     assertEquals(0.2, p2.getNumericValue(2), 0);
     // Verify combiner
-    assertEquals(1, config.getCombinerCount());
+    assertEquals(2, config.getCombinerCount());
     // Verify trainer
     assertEquals(1, config.getTrainerCount());
-    GivenItem t1 = config.getTrainerOrDefault("EPOCH", null);
+    GivenItem t1 = config.getTrainerOrDefault("LEARNING_RATE", null);
     assertNotNull(t1);
-    assertEquals(GivenItem.GivenType.RANGE, t1.getType());
-    assertEquals(1, t1.getMinValue(), 0);
-    assertEquals(100, t1.getMaxValue(), 0);
-    assertEquals(10, t1.getStepsValue(), 0);
+    assertEquals(GivenItem.GivenType.RANGE_REAL, t1.getType());
+    assertEquals(0.001, t1.getMinValue(), 0);
+    assertEquals(0.1, t1.getMaxValue(), 0);
+    assertEquals(4, t1.getStepValue(), 0);
+    assertEquals(GivenItem.ScaleType.LINEAR, t1.getScaleType());
     // Verify source
     assertEquals("DS", model.getSource().getTableRef());
   }

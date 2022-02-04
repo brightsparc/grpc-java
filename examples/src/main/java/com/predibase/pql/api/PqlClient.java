@@ -54,7 +54,7 @@ public class PqlClient {
             logger.log(Level.WARNING, "RPC failed: {0}", e.getStatus());
             return null;
         }
-        logger.fine(String.format("Clause type %s, parsed sql: %s",
+        logger.info(String.format("Clause type %s, parsed sql: %s",
                 response.getClauseType(), response.getParsedSql()));
         return response;
     }
