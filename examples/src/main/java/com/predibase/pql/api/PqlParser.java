@@ -239,8 +239,8 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
                 }
             });
             // Add preprocessing
-            node.getProcessor().forEach(item ->
-                    config.putProcessor(item.getNestedNameAs(String.class), parseGivenItem(item)));
+            node.getPreprocessing().forEach(item ->
+                    config.putPreprocessing(item.getNestedNameAs(String.class), parseGivenItem(item)));
             // Add combiner
             node.getCombiner().forEach(item ->
                     config.putCombiner(item.getNestedNameAs(String.class), parseGivenItem(item)));
@@ -271,8 +271,8 @@ public class PqlParser extends ParserGrpc.ParserImplBase {
                 .setName(feature.getNameAs(String.class))
                 .setType(Feature.FeatureType.valueOf(feature.getGivenType().toString()));
         // NOTE: Try using a ANY parser for feature process and see what happens with serializer
-        feature.getProcessor().forEach(item ->
-                builder.putProcessor(item.getNestedNameAs(String.class), parseGivenItem(item)));
+        feature.getPreprocessing().forEach(item ->
+                builder.putPreprocessing(item.getNestedNameAs(String.class), parseGivenItem(item)));
         feature.getEncoder().forEach(item ->
                 builder.putEncoder(item.getNestedNameAs(String.class), parseGivenItem(item)));
         feature.getDecoder().forEach(item ->

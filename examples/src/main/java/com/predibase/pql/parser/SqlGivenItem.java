@@ -209,8 +209,6 @@ public class SqlGivenItem extends SqlCall {
     if (givenType == GivenType.ARRAY) {
       return ((SqlCall) value).getOperandList().stream().map(value ->
           ((SqlLiteral) value).getValueAs(clazz)).collect(Collectors.toList());
-    } else if (givenType == GivenType.SAMPLE_ARRAY) {
-      return ((SqlSampleArray) value).getArrayValueAs(clazz);
     }
     throw new AssertionError("cannot cast array " + value + " as " + clazz);
   }

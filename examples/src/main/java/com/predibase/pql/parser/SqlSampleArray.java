@@ -85,7 +85,7 @@ public class SqlSampleArray extends SqlCall {
   /** Returns the array of values. */
   public <T extends Object> List<T> getArrayValueAs(Class<T> clazz) {
     return ((SqlCall) array).getOperandList().stream().map(value ->
-            ((SqlLiteral) value).getValueAs(clazz)).collect(Collectors.toList());
+        ((SqlLiteral) value).getValueAs(clazz)).collect(Collectors.toList());
   }
 
   /** Returns the given type. */

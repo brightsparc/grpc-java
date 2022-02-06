@@ -133,7 +133,7 @@ public class SqlFeature extends SqlCall {
 
   private final SqlIdentifier name;
   private final FeatureType featureType;
-  private final SqlNodeList processor;
+  private final SqlNodeList preprocessing;
   private final SqlNodeList encoder;
   private final SqlNodeList decoder;
 
@@ -149,11 +149,11 @@ public class SqlFeature extends SqlCall {
   }
 
   public SqlFeature(SqlParserPos pos, SqlIdentifier name, FeatureType featureType,
-      SqlNodeList processor,  SqlNodeList encoder, SqlNodeList decoder) {
+      SqlNodeList preprocessing,  SqlNodeList encoder, SqlNodeList decoder) {
     super(pos);
     this.name = Objects.requireNonNull(name, "name");
     this.featureType = Objects.requireNonNull(featureType, "featureType");
-    this.processor = processor;
+    this.preprocessing = preprocessing;
     this.encoder = encoder;
     this.decoder = decoder;
   }
@@ -166,7 +166,7 @@ public class SqlFeature extends SqlCall {
 
   @Override public List<SqlNode> getOperandList() {
     return ImmutableList.of(name, featureType.symbol(SqlParserPos.ZERO),
-        processor, encoder, decoder);
+        preprocessing, encoder, decoder);
   }
 
   /** Returns the name. */
@@ -195,8 +195,8 @@ public class SqlFeature extends SqlCall {
   }
 
   /** Returns the encoder. */
-  public List<SqlGivenItem> getProcessor() {
-    return getGivenItems(processor);
+  public List<SqlGivenItem> getPreprocessing() {
+    return getGivenItems(preprocessing);
   }
 
   /** Returns the encoder. */
@@ -231,14 +231,14 @@ public class SqlFeature extends SqlCall {
   @Override public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
     name.unparse(writer, leftPrec, rightPrec);
     writer.keyword(featureType.toString());
-    if (processor != null || encoder != null || decoder != null) {
+    if (preprocessing != null || encoder != null || decoder != null) {
       writer.keyword("WITH");
     }
     // Should we write processor first
-    if (processor != null) {
-      writer.keyword("PROCESSOR");
+    if (preprocessing != null) {
+      writer.keyword("PREPROCESSING");
       SqlWriter.Frame frame = writer.startList("(", ")");
-      processor.unparse(writer, leftPrec, rightPrec);
+      preprocessing.unparse(writer, leftPrec, rightPrec);
       writer.endList(frame);
     }
     if (encoder != null) {

@@ -344,17 +344,17 @@ public class PqlServerTest {
             + "n numeric encoder (type=dense, fc_size=256, use_bias=true, loss.type=mean_squared_error), "
             + "b binary decoder (dropout=0.2), "
             + "s set, " // No encoder or decoder
-            + "t text processor (word_tokenizer='sparse'), " // preprocessor only
+            + "t text preprocessing (word_tokenizer='sparse'), " // preprocessor only
             + "c category encoder (cell_type=sample_grid(ARRAY['rnn', 'gru', 'lstm'])) " // grid search
             + ")\n"
-            + "with processor (force_split=true, "
+            + "target b "
+            + "with preprocessing (force_split=true, "
             + "split_probabilities=ARRAY[0.7, 0.1, 0.2], " // numeric array
             + "text => (char_tokenizer='characters', level => (n=3)) " // level is dummy property
             + ") " // end pre-processor
             + "combiner (type='concat', num_fc_layers=range_int(1,4)) " // Int range
             + "trainer (learning_rate=range_real(0.001, 0.1, 4, linear)) " // Real range with scale
             + "hyperopt (goal='minimize', metric='loss', split='validation') " // Hyper opt settings
-            + "target b "
             + "from ds";
     System.out.println(statement);
     ParseResponse response = getStub().parse(ParseRequest.newBuilder().setStatement(statement)
@@ -382,8 +382,8 @@ public class PqlServerTest {
     Feature i3 = config.getInputFeatures(2);
     assertEquals(Feature.FeatureType.TEXT, i3.getType());
     assertEquals("T", i3.getName());
-    assertEquals(1, i3.getProcessorCount());
-    GivenItem i2p1 = i3.getProcessorOrDefault("WORD_TOKENIZER", null);
+    assertEquals(1, i3.getPreprocessingCount());
+    GivenItem i2p1 = i3.getPreprocessingOrDefault("WORD_TOKENIZER", null);
     assertEquals("sparse", i2p1.getStringValue(0));
     // Verify array sample
     Feature i4 = config.getInputFeatures(3);
@@ -406,12 +406,12 @@ public class PqlServerTest {
     assertEquals(GivenItem.GivenType.NUMERIC, o1d1.getType());
     assertEquals(0.2, o1d1.getNumericValue(0), 0);
     // Verify processing
-    assertEquals(4, config.getProcessorCount());
-    GivenItem p1 = config.getProcessorOrDefault("FORCE_SPLIT", null);
+    assertEquals(4, config.getPreprocessingCount());
+    GivenItem p1 = config.getPreprocessingOrDefault("FORCE_SPLIT", null);
     assertNotNull(p1);
     assertEquals(GivenItem.GivenType.BINARY, p1.getType());
     assertEquals(true, p1.getBoolValue(0));
-    GivenItem p2 = config.getProcessorOrDefault("SPLIT_PROBABILITIES", null);
+    GivenItem p2 = config.getPreprocessingOrDefault("SPLIT_PROBABILITIES", null);
     assertNotNull(p2);
     assertEquals(GivenItem.GivenType.ARRAY, p2.getType());
     assertEquals(0.7, p2.getNumericValue(0), 0);

@@ -17,6 +17,7 @@
 package com.predibase.pql.parser;
 
 import org.apache.calcite.sql.*;
+import org.apache.calcite.sql.ddl.*;
 import org.apache.calcite.sql.parser.*;
 import org.apache.calcite.util.*;
 import org.checkerframework.dataflow.qual.*;
@@ -32,7 +33,7 @@ public class SqlCreateModel extends SqlCreate {
   public final SqlNode config;
   public final SqlNodeList featureList;
   public final SqlNodeList targetList;
-  public final SqlNodeList processor;
+  public final SqlNodeList preprocessing;
   public final SqlNodeList trainer;
   public final SqlNodeList combiner;
   public final SqlNodeList hyperopt;
@@ -48,10 +49,9 @@ public class SqlCreateModel extends SqlCreate {
     super(OPERATOR, pos, replace, ifNotExists);
     this.name = Objects.requireNonNull(name, "name");
     this.config = config;
-    // TODO: Based on config, dynamically set the following properties
     this.featureList = null;
     this.targetList = null;
-    this.processor = null;
+    this.preprocessing = null;
     this.combiner = null;
     this.trainer = null;
     this.hyperopt = null;
@@ -62,14 +62,15 @@ public class SqlCreateModel extends SqlCreate {
   /** Creates a SqlCreateModel with sql parameters. */
   public SqlCreateModel(SqlParserPos pos, boolean replace, boolean ifNotExists,
       SqlIdentifier name, SqlNodeList featureList, SqlNodeList targetList,
-      SqlNodeList processor, SqlNodeList combiner, SqlNodeList trainer, SqlNodeList hyperopt,
+      SqlNodeList preprocessing, SqlNodeList combiner, SqlNodeList trainer, SqlNodeList hyperopt,
       SqlDatasetRef sourceRef, SqlNode query) {
     super(OPERATOR, pos, replace, ifNotExists);
     this.name = Objects.requireNonNull(name, "name");
     this.config = null;
-    this.featureList = Objects.requireNonNull(featureList, "featureList");
-    this.targetList = Objects.requireNonNull(targetList, "targetList");
-    this.processor = processor;
+    // Feature list and target only required if not retrain
+    this.featureList = featureList;
+    this.targetList = targetList;
+    this.preprocessing = preprocessing;
     this.combiner = combiner;
     this.trainer = trainer;
     this.hyperopt = hyperopt;
@@ -79,7 +80,7 @@ public class SqlCreateModel extends SqlCreate {
 
   @Override public List<SqlNode> getOperandList() {
     return ImmutableNullableList.of(name, config,
-        targetList, featureList, processor, combiner, trainer, hyperopt, sourceRef, query);
+        targetList, featureList, preprocessing, combiner, trainer, hyperopt, sourceRef, query);
   }
 
   @Pure
@@ -118,14 +119,30 @@ public class SqlCreateModel extends SqlCreate {
   @Pure
   public final List<SqlFeature> getFeatureList() {
     if (featureList != null) {
-      return featureList.stream().map(f -> (SqlFeature) f).collect(Collectors.toList());
+      return featureList.stream().filter(f -> f instanceof SqlFeature).map(f ->
+          (SqlFeature) f).collect(Collectors.toList());
     }
     return new ArrayList<>();
   }
 
   @Pure
-  public final List<SqlGivenItem> getProcessor() {
-    return getGivenItems(processor);
+  public final List<SqlIdentifier> getPrimaryKeys() {
+    ArrayList<SqlIdentifier> identifiers = new ArrayList<>();
+    if (featureList != null) {
+      featureList.forEach(f -> {
+        if (f instanceof SqlKeyConstraint && f.getKind() == SqlKind.PRIMARY_KEY) {
+          // Get the second operator which is a node list of SqlIdentifiers
+          SqlNodeList c = (SqlNodeList) ((SqlKeyConstraint) f).getOperandList().get(1);
+          identifiers.addAll(c.stream().map(o -> (SqlIdentifier) o).collect(Collectors.toList()));
+        }
+      });
+    }
+    return identifiers;
+  }
+
+  @Pure
+  public final List<SqlGivenItem> getPreprocessing() {
+    return getGivenItems(preprocessing);
   }
 
   @Pure
@@ -182,6 +199,20 @@ public class SqlCreateModel extends SqlCreate {
       writer.keyword("IF NOT EXISTS");
     }
     name.unparse(writer, leftPrec, rightPrec);
+    unparseConfig(writer, leftPrec, rightPrec);
+    // From source table, or query
+    if (sourceRef != null) {
+      writer.newlineAndIndent();
+      writer.keyword("FROM");
+      sourceRef.unparse(writer, leftPrec, rightPrec);
+    } else if (query != null) {
+      writer.keyword("AS");
+      writer.newlineAndIndent();
+      query.unparse(writer, leftPrec, rightPrec);
+    }
+  }
+
+  protected void unparseConfig(SqlWriter writer, int leftPrec, int rightPrec) {
     // Should config be one of the other?
     if (config != null) {
       writer.newlineAndIndent();
@@ -189,30 +220,34 @@ public class SqlCreateModel extends SqlCreate {
       writer.keyword("CONFIG");
       config.unparse(writer, leftPrec, rightPrec);
     } else {
-      // Write the list of features
-      SqlWriter.Frame featureFrame = writer.startList("(", ")");
-      featureList.forEach(feature -> {
-        writer.sep(",");
-        writer.newlineAndIndent();
-        feature.unparse(writer, leftPrec, rightPrec);
-      });
-      writer.endList(featureFrame);
-      writer.newlineAndIndent();
-      writer.keyword("TARGET");
-      if (targetList.size() == 1) {
-        targetList.unparse(writer, leftPrec, rightPrec);
-      } else {
-        SqlWriter.Frame frame = writer.startList("(", ")");
-        targetList.unparse(writer, leftPrec, rightPrec);
-        writer.endList(frame);
-      }
-      if (processor != null || combiner != null || trainer != null) {
-        writer.keyword("WITH");
-        if (processor != null) {
+      if (featureList != null) {
+        // Write the list of features
+        SqlWriter.Frame featureFrame = writer.startList("(", ")");
+        featureList.forEach(feature -> {
+          writer.sep(",");
           writer.newlineAndIndent();
-          writer.keyword("PROCESSOR");
+          feature.unparse(writer, leftPrec, rightPrec);
+        });
+        writer.endList(featureFrame);
+        writer.newlineAndIndent();
+      }
+      if (targetList != null) {
+        writer.keyword("TARGET");
+        if (targetList.size() == 1) {
+          targetList.unparse(writer, leftPrec, rightPrec);
+        } else {
           SqlWriter.Frame frame = writer.startList("(", ")");
-          processor.unparse(writer, leftPrec, rightPrec);
+          targetList.unparse(writer, leftPrec, rightPrec);
+          writer.endList(frame);
+        }
+      }
+      if (preprocessing != null || combiner != null || trainer != null) {
+        writer.keyword("WITH");
+        if (preprocessing != null) {
+          writer.newlineAndIndent();
+          writer.keyword("PREPROCESSING");
+          SqlWriter.Frame frame = writer.startList("(", ")");
+          preprocessing.unparse(writer, leftPrec, rightPrec);
           writer.endList(frame);
         }
         if (combiner != null) {
@@ -237,16 +272,6 @@ public class SqlCreateModel extends SqlCreate {
           writer.endList(frame);
         }
       }
-    }
-    // From source table, or query
-    if (sourceRef != null) {
-      writer.newlineAndIndent();
-      writer.keyword("FROM");
-      sourceRef.unparse(writer, leftPrec, rightPrec);
-    } else if (query != null) {
-      writer.keyword("AS");
-      writer.newlineAndIndent();
-      query.unparse(writer, leftPrec, rightPrec);
     }
   }
 }

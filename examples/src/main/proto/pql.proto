@@ -136,10 +136,10 @@ message CreateModelClause {
 message ModelConfig { // Use snake case for transforming model config
   repeated Feature input_features = 1;
   repeated Feature output_features = 2;
-  map<string, GivenItem> processor = 3;
+  map<string, GivenItem> preprocessing = 3;
   map<string, GivenItem> combiner = 4;
   map<string, GivenItem> trainer = 5;
-  map<string, GivenItem> hyperopt = 6; // TODO: Add hyperopt settings that also include RANGE, ARRAY values
+  map<string, GivenItem> hyperopt = 6;
 }
 
 message Feature {
@@ -161,7 +161,7 @@ message Feature {
   }
   string name = 1;
   FeatureType type = 2;
-  map<string, GivenItem> processor = 3;
+  map<string, GivenItem> preprocessing = 3;
   map<string, GivenItem> encoder = 4;
   map<string, GivenItem> decoder = 5;
 }
